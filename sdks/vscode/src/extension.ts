@@ -60,7 +60,7 @@ export function activate(context: vscode.ExtensionContext) {
     })
 
     terminal.show()
-    terminal.sendText(`opencode --port ${port}`)
+    terminal.sendText(`oc --port ${port}`)
 
     const fileRef = getActiveFile()
     if (!fileRef) {
