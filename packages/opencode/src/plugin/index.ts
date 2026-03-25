@@ -18,6 +18,8 @@ import { makeRunPromise } from "@/effect/run-service"
 export namespace Plugin {
   const log = Log.create({ service: "plugin" })
 
+  const BUILTIN = ["opencode-anthropic-auth@0.0.13"]
+
   type State = {
     hooks: Hooks[]
   }
@@ -89,6 +91,9 @@ export namespace Plugin {
 
             let plugins = cfg.plugin ?? []
             if (plugins.length) await Config.waitForDependencies()
+            if (!Flag.OPENCODE_DISABLE_DEFAULT_PLUGINS) {
+              plugins = [...BUILTIN, ...plugins]
+            }
 
             for (let plugin of plugins) {
               if (DEPRECATED_PLUGIN_PACKAGES.some((pkg) => plugin.includes(pkg))) continue
