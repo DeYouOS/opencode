@@ -6,11 +6,11 @@ import * as vscode from "vscode"
 const TERMINAL_NAME = "opencode"
 
 export function activate(context: vscode.ExtensionContext) {
-  let openNewTerminalDisposable = vscode.commands.registerCommand("opencode.openNewTerminal", async () => {
+  const openNewTerminalDisposable = vscode.commands.registerCommand("opencode.openNewTerminal", async () => {
     await openTerminal()
   })
 
-  let openTerminalDisposable = vscode.commands.registerCommand("opencode.openTerminal", async () => {
+  const openTerminalDisposable = vscode.commands.registerCommand("opencode.openTerminal", async () => {
     // An opencode terminal already exists => focus it
     const existingTerminal = vscode.window.terminals.find((t) => t.name === TERMINAL_NAME)
     if (existingTerminal) {
@@ -21,7 +21,7 @@ export function activate(context: vscode.ExtensionContext) {
     await openTerminal()
   })
 
-  let addFilepathDisposable = vscode.commands.registerCommand("opencode.addFilepathToTerminal", async () => {
+  const addFilepathDisposable = vscode.commands.registerCommand("opencode.addFilepathToTerminal", async () => {
     const fileRef = getActiveFile()
     if (!fileRef) {
       return
@@ -33,17 +33,15 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     if (terminal.name === TERMINAL_NAME) {
-      // @ts-ignore
-      const port = terminal.creationOptions.env?.["_EXTENSION_OPENCODE_PORT"]
-      port ? await appendPrompt(parseInt(port), fileRef) : terminal.sendText(fileRef, false)
+      const port = getPort(terminal)
+      port ? await appendPrompt(parseInt(port, 10), fileRef) : terminal.sendText(fileRef, false)
       terminal.show()
     }
   })
 
-  context.subscriptions.push(openTerminalDisposable, addFilepathDisposable)
+  context.subscriptions.push(openNewTerminalDisposable, openTerminalDisposable, addFilepathDisposable)
 
   async function openTerminal() {
-    // Create a new terminal in split screen
     const port = Math.floor(Math.random() * (65535 - 16384 + 1)) + 16384
     const terminal = vscode.window.createTerminal({
       name: TERMINAL_NAME,
@@ -52,7 +50,7 @@ export function activate(context: vscode.ExtensionContext) {
         dark: vscode.Uri.file(context.asAbsolutePath("images/button-light.svg")),
       },
       location: {
-        viewColumn: vscode.ViewColumn.Beside,
+        viewColumn: vscode.ViewColumn.Active,
         preserveFocus: false,
       },
       env: {
@@ -78,7 +76,7 @@ export function activate(context: vscode.ExtensionContext) {
         await fetch(`http://localhost:${port}/app`)
         connected = true
         break
-      } catch (e) {}
+      } catch {}
 
       tries--
     } while (tries > 0)
@@ -98,6 +96,14 @@ export function activate(context: vscode.ExtensionContext) {
       },
       body: JSON.stringify({ text }),
     })
+  }
+
+  function getPort(terminal: vscode.Terminal) {
+    if (!terminal.creationOptions || !("env" in terminal.creationOptions)) {
+      return
+    }
+
+    return terminal.creationOptions.env?._EXTENSION_OPENCODE_PORT
   }
 
   function getActiveFile() {
