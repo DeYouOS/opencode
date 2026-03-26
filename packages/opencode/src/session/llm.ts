@@ -261,9 +261,11 @@ export namespace LLM {
               "x-opencode-request": input.user.id,
               "x-opencode-client": Flag.OPENCODE_CLIENT,
             }
-          : {
-              "User-Agent": `opencode/${Installation.VERSION}`,
-            }),
+          : input.model.providerID !== "anthropic"
+            ? {
+                "User-Agent": `opencode/${Installation.VERSION}`,
+              }
+            : undefined),
         ...input.model.headers,
         ...headers,
       },
