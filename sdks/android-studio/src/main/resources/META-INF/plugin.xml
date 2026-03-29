@@ -1,0 +1,71 @@
+<idea-plugin>
+    <id>com.opencode.intellij</id>
+    <name>opencode</name>
+    <vendor url="https://opencode.ai">opencode</vendor>
+
+    <description><![CDATA[
+        <p>将 <a href="https://opencode.ai">opencode</a> AI 编码代理集成到 Android Studio / IntelliJ IDE。</p>
+        <ul>
+            <li><b>快速启动</b> — Ctrl+Esc 在终端中打开 opencode，或聚焦已有的 opencode 终端</li>
+            <li><b>新建会话</b> — Ctrl+Shift+Esc 启动新的 opencode 终端会话</li>
+            <li><b>上下文感知</b> — 自动将当前编辑器选区或文件共享给 opencode</li>
+            <li><b>文件引用快捷键</b> — Ctrl+Alt+K 插入文件引用，如 @File#L37-42</li>
+        </ul>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>org.jetbrains.plugins.terminal</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <projectService
+            serviceImplementation="com.opencode.intellij.terminal.OpencodeTerminalManager"/>
+
+        <!-- 编辑器标签页：拦截 OpencodeVirtualFile，在编辑器主区域打开终端 -->
+        <fileEditorProvider
+            implementation="com.opencode.intellij.editor.OpencodeEditorProvider"/>
+
+
+    </extensions>
+
+    <actions>
+        <!-- 打开 opencode 终端（已有则聚焦） -->
+        <action
+            id="opencode.openTerminal"
+            class="com.opencode.intellij.actions.OpenTerminalAction"
+            text="Open opencode"
+            description="打开 opencode 终端，已有则聚焦"
+            icon="/icons/opencode.svg">
+            <keyboard-shortcut
+                keymap="$default"
+                first-keystroke="ctrl ESCAPE"/>
+            <add-to-group group-id="ToolsMenu" anchor="first"/>
+            <!-- 主工具栏右侧图标，点击直接打开 -->
+            <add-to-group group-id="NavBarToolBar" anchor="last"/>
+            <add-to-group group-id="MainToolbarRight" anchor="last"/>
+        </action>
+
+        <!-- 新建 opencode 终端标签页 -->
+        <action
+            id="opencode.openNewTerminal"
+            class="com.opencode.intellij.actions.OpenNewTerminalAction"
+            text="Open opencode in New Tab"
+            description="新建 opencode 终端标签页"
+            icon="/icons/opencode.svg">
+            <keyboard-shortcut
+                keymap="$default"
+                first-keystroke="ctrl shift ESCAPE"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+
+        <!-- 插入文件路径引用到 opencode 终端 -->
+        <action
+            id="opencode.addFilepathToTerminal"
+            class="com.opencode.intellij.actions.AddFilepathAction"
+            text="Add Filepath to opencode"
+            description="将当前文件路径和选区发送到 opencode 终端">
+            <keyboard-shortcut
+                keymap="$default"
+                first-keystroke="ctrl alt K"/>
+        </action>
+    </actions>
+</idea-plugin>
