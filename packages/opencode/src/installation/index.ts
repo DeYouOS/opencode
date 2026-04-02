@@ -201,8 +201,9 @@ export namespace Installation {
           return "unknown" as Method
         })
 
-        const latestVersion = VERSION as string
-        const latestImpl = Effect.fn("Installation.latest")(() => latestVersion)
+        const latestImpl = Effect.fn("Installation.latest")(function* (_method?: Method) {
+          return VERSION as string
+        })
 
         const upgradeImpl = Effect.fn("Installation.upgrade")(function* (m: Method, target: string) {
           let result: { code: ChildProcessSpawner.ExitCode; stdout: string; stderr: string } | undefined
