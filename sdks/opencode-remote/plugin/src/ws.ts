@@ -2,10 +2,12 @@ import type { PluginInput } from "@opencode-ai/plugin"
 import type { AuthHandshake, AuthResult, RemoteEvent, WsEnvelope } from "../../shared/protocol"
 
 type ActionHandler = (env: WsEnvelope) => void
+type ConnectHandler = () => void
 
 export function connect(url: string, token: string, input: PluginInput) {
   let ws: WebSocket | null = null
   let handler: ActionHandler | null = null
+  let connected: ConnectHandler | null = null
   let retry = 0
   const maxRetry = 30_000
 
@@ -34,6 +36,7 @@ export function connect(url: string, token: string, input: PluginInput) {
           return
         }
         console.log("[remote] 已连接到 relay server")
+        connected?.()
         return
       }
       if (data.type === "ping") {
@@ -72,6 +75,10 @@ export function connect(url: string, token: string, input: PluginInput) {
 
     onAction(fn: ActionHandler) {
       handler = fn
+    },
+
+    onConnected(fn: ConnectHandler) {
+      connected = fn
     },
 
     close() {
