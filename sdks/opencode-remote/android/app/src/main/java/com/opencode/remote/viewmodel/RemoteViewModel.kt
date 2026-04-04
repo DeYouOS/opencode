@@ -62,6 +62,14 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
                 handleEvent(type, payload)
             }
         }
+        viewModelScope.launch {
+            client.state.collect { state ->
+                if (state is WsState.Connected) {
+                    val action = RefreshAction()
+                    client.send(json.encodeToString(RefreshAction.serializer(), action))
+                }
+            }
+        }
     }
 
     fun connect(url: String, token: String) {
@@ -127,9 +135,13 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             "event.session.updated" -> {
+                // upsert：已有则更新，没有则添加
                 val s = json.decodeFromJsonElement(SessionInfoData.serializer(), data)
-                _sessions.value = _sessions.value.map {
-                    if (it.id == s.id) it.copy(title = s.title) else it
+                val exists = _sessions.value.any { it.id == s.id }
+                _sessions.value = if (exists) {
+                    _sessions.value.map { if (it.id == s.id) it.copy(title = s.title) else it }
+                } else {
+                    _sessions.value + SessionInfo(s.id, s.title)
                 }
             }
 

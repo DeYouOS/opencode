@@ -129,7 +129,6 @@ export function mapEvent(event: Event): RemoteEvent | null {
         data: {
           sessionID: event.properties.sessionID,
           todos: event.properties.todos.map((t) => ({
-            id: t.id,
             content: t.content,
             status: t.status,
             priority: t.priority,

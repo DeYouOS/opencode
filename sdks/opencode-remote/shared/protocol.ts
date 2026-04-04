@@ -130,7 +130,6 @@ export type TodoUpdateEvent = {
   data: {
     sessionID: string
     todos: Array<{
-      id: string
       content: string
       status: string
       priority: string

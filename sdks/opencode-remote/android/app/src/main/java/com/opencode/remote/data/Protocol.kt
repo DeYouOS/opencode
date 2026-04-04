@@ -111,7 +111,6 @@ data class ToolUpdateData(
 
 @Serializable
 data class TodoItem(
-    val id: String,
     val content: String,
     val status: String,
     val priority: String
