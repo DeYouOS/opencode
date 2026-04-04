@@ -1,44 +1,76 @@
 package com.opencode.remote.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.opencode.remote.ui.component.MessageBubble
+import com.opencode.remote.ui.component.MessageInfoBar
 import com.opencode.remote.ui.component.ToolCallCard
+import com.opencode.remote.ui.theme.StatusBusy
 import com.opencode.remote.viewmodel.RemoteViewModel
+import com.opencode.remote.viewmodel.TimelineItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
     val sessions by vm.sessions.collectAsState()
-    val parts by vm.messages.collectAsState()
-    val toolMap by vm.tools.collectAsState()
+    val timelineMap by vm.timeline.collectAsState()
     val todoMap by vm.todos.collectAsState()
+    val infoMap by vm.msgInfo.collectAsState()
     val session = sessions.find { it.id == sessionID }
-    val msgs = parts[sessionID].orEmpty()
-    val tools = toolMap[sessionID].orEmpty()
+    // 按 seq 排序确保时间线顺序正确
+    val items = timelineMap[sessionID].orEmpty().sortedBy { it.seq }
     val todos = todoMap[sessionID].orEmpty()
+    val info = infoMap[sessionID]
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
-    LaunchedEffect(msgs.size) {
-        if (msgs.isNotEmpty()) listState.animateScrollToItem(msgs.size - 1)
+    // 时间线更新时自动滚动到底部
+    LaunchedEffect(items.size) {
+        if (items.isNotEmpty()) listState.animateScrollToItem(items.size - 1)
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(session?.title ?: sessionID.take(8)) },
+                title = {
+                    Column {
+                        Text(session?.title ?: sessionID.take(8))
+                        // 显示会话状态和 token 开销摘要
+                        val subtitle = buildString {
+                            when (session?.status) {
+                                "busy" -> append("⚡ 工作中")
+                                "retry" -> append("🔄 重试中")
+                                else -> append("空闲")
+                            }
+                            if (info?.tokens != null) {
+                                append(" · ${info.tokens.input + info.tokens.output}tok")
+                            }
+                            if (info?.cost != null && info.cost > 0) {
+                                append(" · $${String.format("%.4f", info.cost)}")
+                            }
+                        }
+                        Text(
+                            subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (session?.status == "busy") StatusBusy else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
@@ -50,57 +82,112 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
                             Icon(Icons.Default.Stop, "中止", tint = MaterialTheme.colorScheme.error)
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.White,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
         },
+        // 底部输入栏：白色背景 + 顶部阴影分隔
         bottomBar = {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                modifier = Modifier.shadow(8.dp, clip = false),
+                color = Color.White
             ) {
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("输入消息…") },
-                    singleLine = true
-                )
-                Spacer(Modifier.width(8.dp))
-                IconButton(
-                    onClick = {
-                        if (input.isNotBlank()) {
-                            vm.sendMessage(sessionID, input.trim())
-                            input = ""
-                        }
-                    }
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Send, "发送")
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = { input = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("输入消息…") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    FilledIconButton(
+                        onClick = {
+                            if (input.isNotBlank()) {
+                                vm.sendMessage(sessionID, input.trim())
+                                input = ""
+                            }
+                        },
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, "发送")
+                    }
                 }
             }
-        }
+        },
+        containerColor = Color(0xFFFAFAFA)
     ) { padding ->
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier.padding(padding).fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            items(msgs) { part ->
-                MessageBubble(part)
+            // 按时间线顺序交织渲染消息、工具、任务列表、开销信息
+            items(items, key = { "${it::class.simpleName}_${it.seq}" }) { item ->
+                when (item) {
+                    is TimelineItem.Msg -> MessageBubble(item.part)
+                    is TimelineItem.Tool -> ToolCallCard(item.info)
+                    is TimelineItem.Info -> MessageInfoBar(item.info)
+                    is TimelineItem.Todo -> {
+                        // 任务列表卡片
+                        Card(
+                            Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(1.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text("📋 任务列表", style = MaterialTheme.typography.titleSmall)
+                                Spacer(Modifier.height(6.dp))
+                                item.items.forEach { todo ->
+                                    val icon = when (todo.status) {
+                                        "completed" -> "✅"
+                                        "in_progress" -> "🔄"
+                                        "cancelled" -> "❌"
+                                        else -> "⬜"
+                                    }
+                                    val pri = when (todo.priority) {
+                                        "high" -> " 🔴"
+                                        "medium" -> " 🟡"
+                                        else -> ""
+                                    }
+                                    Text(
+                                        "$icon ${todo.content}$pri",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.padding(vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            items(tools) { tool ->
-                ToolCallCard(tool)
-            }
-            if (todos.isNotEmpty()) {
+            // 如果时间线里没有 Todo 但有独立的 todos 数据，补充显示
+            if (todos.isNotEmpty() && items.none { it is TimelineItem.Todo }) {
                 item {
-                    Card(Modifier.fillMaxWidth().padding(4.dp)) {
+                    Card(
+                        Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(1.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
                         Column(Modifier.padding(12.dp)) {
-                            Text("任务列表", style = MaterialTheme.typography.titleSmall)
-                            Spacer(Modifier.height(4.dp))
+                            Text("📋 任务列表", style = MaterialTheme.typography.titleSmall)
+                            Spacer(Modifier.height(6.dp))
                             todos.forEach { todo ->
                                 val icon = when (todo.status) {
                                     "completed" -> "✅"
@@ -108,7 +195,11 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
                                     "cancelled" -> "❌"
                                     else -> "⬜"
                                 }
-                                Text("$icon ${todo.content}", style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    "$icon ${todo.content}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(vertical = 2.dp)
+                                )
                             }
                         }
                     }
