@@ -26,7 +26,7 @@ sealed class WsState {
 
 /** 带自动重连的 WebSocket 客户端，负责认证握手和消息收发 */
 class RelayClient {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }
     private val http = OkHttpClient.Builder()
         .pingInterval(30, TimeUnit.SECONDS)
         .build()

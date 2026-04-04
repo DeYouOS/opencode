@@ -34,7 +34,7 @@ data class ToolInfo(
 )
 
 class RemoteViewModel(app: Application) : AndroidViewModel(app) {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }
     val client = RelayClient()
 
     private val _sessions = MutableStateFlow<List<SessionInfo>>(emptyList())

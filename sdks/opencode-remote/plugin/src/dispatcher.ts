@@ -9,6 +9,9 @@ import type { RemoteAction } from "../../shared/protocol"
 export async function dispatch(action: RemoteAction, input: PluginInput) {
   const client = input.client
   const base = input.serverUrl.toString().replace(/\/$/, "")
+  const fs = await import("fs")
+  const log = (msg: string) =>
+    fs.appendFileSync("/tmp/opencode-remote-dispatch.log", `${new Date().toISOString()} ${msg}\n`)
 
   switch (action.type) {
     case "action.permission.reply":
@@ -19,13 +22,19 @@ export async function dispatch(action: RemoteAction, input: PluginInput) {
       break
 
     case "action.session.message":
-      await client.session.promptAsync({
-        path: { id: action.data.sessionID },
-        body: {
-          parts: [{ type: "text", text: action.data.content }],
-          agent: action.data.agent,
-        },
-      })
+      log(`promptAsync sessionID=${action.data.sessionID} content="${action.data.content}"`)
+      try {
+        const res = await client.session.promptAsync({
+          path: { id: action.data.sessionID },
+          body: {
+            parts: [{ type: "text" as const, text: action.data.content }],
+            agent: action.data.agent ?? undefined,
+          },
+        })
+        log(`promptAsync result: ${JSON.stringify(res)}`)
+      } catch (e) {
+        log(`promptAsync error: ${e}`)
+      }
       break
 
     case "action.session.abort":
