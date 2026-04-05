@@ -94,7 +94,7 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
                 color = Color.White
             ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                    Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
