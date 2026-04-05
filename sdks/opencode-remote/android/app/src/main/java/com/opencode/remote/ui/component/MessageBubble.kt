@@ -47,7 +47,7 @@ private fun TextBubble(part: MessagePart) {
 // 推理内容：可折叠，默认只显示摘要
 @Composable
 private fun ReasoningBubble(part: MessagePart) {
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(true) }
 
     Card(
         Modifier.fillMaxWidth().clickable { expanded = !expanded },
