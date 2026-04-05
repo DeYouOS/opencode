@@ -19,8 +19,8 @@ data class ServerConfig(val url: String, val token: String)
 suspend fun Context.loadConfig(): ServerConfig {
     val prefs = store.data.first()
     return ServerConfig(
-        url = prefs[KEY_URL] ?: "",
-        token = prefs[KEY_TOKEN] ?: ""
+        url = prefs[KEY_URL] ?: "ws://101.34.243.224:3100",
+        token = prefs[KEY_TOKEN] ?: "opencode-remote-2024"
     )
 }
 
