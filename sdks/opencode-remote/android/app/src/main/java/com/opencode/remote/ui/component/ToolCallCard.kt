@@ -22,11 +22,12 @@ import com.opencode.remote.ui.theme.StatusError
 import com.opencode.remote.ui.theme.StatusIdle
 import com.opencode.remote.ui.theme.ToolBg
 import com.opencode.remote.viewmodel.ToolInfo
+import kotlinx.serialization.json.Json
 
 // 工具调用卡片：可展开查看输入/输出详情
 @Composable
 fun ToolCallCard(tool: ToolInfo) {
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(true) }
 
     // 根据工具状态选择左边框颜色
     val accent = when (tool.status) {
@@ -105,9 +106,14 @@ fun ToolCallCard(tool: ToolInfo) {
                     exit = shrinkVertically()
                 ) {
                     Column(Modifier.padding(top = 8.dp)) {
-                        // 输入参数
+                        // 输入参数（JSON 美化输出）
                         if (tool.input != null) {
-                            DetailSection("输入", tool.input.toString())
+                            val pretty = try {
+                                Json { prettyPrint = true }.encodeToString(
+                                    kotlinx.serialization.json.JsonObject.serializer(), tool.input
+                                )
+                            } catch (_: Exception) { tool.input.toString() }
+                            DetailSection("输入", pretty)
                         }
                         // 输出结果
                         if (!tool.output.isNullOrBlank()) {
