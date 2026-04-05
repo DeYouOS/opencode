@@ -14,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.opencode.remote.ui.component.MessageBubble
@@ -89,29 +88,29 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
                 )
             )
         },
-        // 底部输入栏：白色背景 + 顶部阴影分隔
         bottomBar = {
             Surface(
-                modifier = Modifier.shadow(8.dp, clip = false),
+                shadowElevation = 2.dp,
                 color = Color.White
             ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
                         value = input,
                         onValueChange = { input = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("输入消息…") },
+                        placeholder = { Text("输入消息…", style = MaterialTheme.typography.bodySmall) },
                         singleLine = true,
-                        shape = RoundedCornerShape(24.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        textStyle = MaterialTheme.typography.bodySmall,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline
                         )
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(6.dp))
                     FilledIconButton(
                         onClick = {
                             if (input.isNotBlank()) {
@@ -119,11 +118,12 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
                                 input = ""
                             }
                         },
+                        modifier = Modifier.size(36.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primary
                         )
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.Send, "发送")
+                        Icon(Icons.AutoMirrored.Filled.Send, "发送", modifier = Modifier.size(18.dp))
                     }
                 }
             }
