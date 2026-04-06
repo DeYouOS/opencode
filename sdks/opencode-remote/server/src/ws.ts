@@ -65,7 +65,6 @@ export function createWsHandler(token: string, pluginQueue: Queue, phoneQueue: Q
   function handleMessage(ws: ServerWebSocket<WsData>, raw: string) {
     const parsed = JSON.parse(raw) as Record<string, unknown>
 
-    // ACK 消息，暂时忽略
     if ("ack" in parsed) return
 
     // pong 心跳回应

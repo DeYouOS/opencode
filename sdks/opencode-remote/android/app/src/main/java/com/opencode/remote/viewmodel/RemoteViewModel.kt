@@ -115,6 +115,7 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
         )
         client.send(json.encodeToString(PermissionReplyAction.serializer(), action))
         _permissions.value = _permissions.value.filter { it.id != permissionID }
+        removeTimeline(sessionID, "__perm_$permissionID")
     }
 
     fun sendMessage(sessionID: String, content: String) {
