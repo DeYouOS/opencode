@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.opencode.remote.ui.component.MessageBubble
 import com.opencode.remote.ui.component.MessageInfoBar
+import com.opencode.remote.ui.component.PermissionCard
 import com.opencode.remote.ui.component.ToolCallCard
 import com.opencode.remote.ui.theme.StatusBusy
 import com.opencode.remote.viewmodel.RemoteViewModel
@@ -142,8 +143,10 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
                     is TimelineItem.Msg -> MessageBubble(item.part)
                     is TimelineItem.Tool -> ToolCallCard(item.info)
                     is TimelineItem.Info -> MessageInfoBar(item.info)
+                    is TimelineItem.Perm -> PermissionCard(item.data) { response ->
+                        vm.replyPermission(item.data.sessionID, item.data.id, response)
+                    }
                     is TimelineItem.Todo -> {
-                        // 任务列表卡片
                         Card(
                             Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = Color.White),

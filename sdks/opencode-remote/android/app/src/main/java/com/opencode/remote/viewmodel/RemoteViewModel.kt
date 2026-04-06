@@ -44,6 +44,7 @@ sealed class TimelineItem(val seq: Long) {
     class Tool(seq: Long, val info: ToolInfo) : TimelineItem(seq)
     class Todo(seq: Long, val items: List<TodoItem>) : TimelineItem(seq)
     class Info(seq: Long, val info: MessageInfoData) : TimelineItem(seq)
+    class Perm(seq: Long, val data: PermissionData) : TimelineItem(seq)
 }
 
 class RemoteViewModel(app: Application) : AndroidViewModel(app) {
@@ -147,6 +148,12 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
         _timeline.value = _timeline.value + (sid to (cur + item))
     }
 
+    // 从时间线中按 ID 移除指定项
+    private fun removeTimeline(sid: String, id: String) {
+        val cur = _timeline.value[sid] ?: return
+        _timeline.value = _timeline.value + (sid to cur.filter { timelineId(it) != id })
+    }
+
     // 替换时间线中指定类型的唯一项（如 Todo 列表每个 session 只保留一份）
     private fun replaceTimeline(sid: String, item: TimelineItem, cls: Class<*>) {
         val cur = _timeline.value[sid].orEmpty().toMutableList()
@@ -161,6 +168,7 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
         is TimelineItem.Tool -> item.info.id
         is TimelineItem.Todo -> "__todo__"
         is TimelineItem.Info -> "__info_${item.info.messageID}"
+        is TimelineItem.Perm -> "__perm_${item.data.id}"
     }
 
     private fun handleEvent(type: String, payload: JsonObject) {
@@ -170,11 +178,15 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
             "event.permission" -> {
                 val p = json.decodeFromJsonElement(PermissionData.serializer(), data)
                 _permissions.value = _permissions.value + p
+                // 同时插入时间线，让权限卡片出现在会话对话流中
+                upsertTimeline(p.sessionID, "__perm_${p.id}", TimelineItem.Perm(_seq.incrementAndGet(), p))
             }
 
             "event.permission.replied" -> {
                 val p = json.decodeFromJsonElement(PermissionRepliedData.serializer(), data)
                 _permissions.value = _permissions.value.filter { it.id != p.permissionID }
+                // 从时间线中移除已回复的权限卡片
+                removeTimeline(p.sessionID, "__perm_${p.permissionID}")
             }
 
             "event.session.status" -> {
