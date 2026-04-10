@@ -40,13 +40,21 @@ export function activate(context: vscode.ExtensionContext) {
     }
   })
 
-  context.subscriptions.push(openTerminalDisposable, addFilepathDisposable)
+  context.subscriptions.push(openTerminalDisposable, openNewTerminalDisposable, addFilepathDisposable)
+
+  // 窗口重新加载时清理残留的 opencode 终端，防止恢复出空壳进程
+  for (const t of vscode.window.terminals) {
+    if (t.name === TERMINAL_NAME) {
+      t.dispose()
+    }
+  }
 
   async function openTerminal() {
     // Create a new terminal in split screen
     const port = Math.floor(Math.random() * (65535 - 16384 + 1)) + 16384
     const terminal = vscode.window.createTerminal({
       name: TERMINAL_NAME,
+      isTransient: true,
       iconPath: {
         light: vscode.Uri.file(context.asAbsolutePath("images/button-dark.svg")),
         dark: vscode.Uri.file(context.asAbsolutePath("images/button-light.svg")),

@@ -201,65 +201,9 @@ export namespace Installation {
           return "unknown" as Method
         })
 
-        const latestImpl = Effect.fn("Installation.latest")(function* (installMethod?: Method) {
-          const detectedMethod = installMethod || (yield* methodImpl())
-
-          if (detectedMethod === "brew") {
-            const formula = yield* getBrewFormula()
-            if (formula.includes("/")) {
-              const infoJson = yield* text(["brew", "info", "--json=v2", formula])
-              const info = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(BrewInfoV2))(infoJson)
-              return info.formulae[0].versions.stable
-            }
-            const response = yield* httpOk.execute(
-              HttpClientRequest.get("https://formulae.brew.sh/api/formula/opencode.json").pipe(
-                HttpClientRequest.acceptJson,
-              ),
-            )
-            const data = yield* HttpClientResponse.schemaBodyJson(BrewFormula)(response)
-            return data.versions.stable
-          }
-
-          if (detectedMethod === "npm" || detectedMethod === "bun" || detectedMethod === "pnpm") {
-            const r = (yield* text(["npm", "config", "get", "registry"])).trim()
-            const reg = r || "https://registry.npmjs.org"
-            const registry = reg.endsWith("/") ? reg.slice(0, -1) : reg
-            const channel = CHANNEL
-            const response = yield* httpOk.execute(
-              HttpClientRequest.get(`${registry}/opencode-ai/${channel}`).pipe(HttpClientRequest.acceptJson),
-            )
-            const data = yield* HttpClientResponse.schemaBodyJson(NpmPackage)(response)
-            return data.version
-          }
-
-          if (detectedMethod === "choco") {
-            const response = yield* httpOk.execute(
-              HttpClientRequest.get(
-                "https://community.chocolatey.org/api/v2/Packages?$filter=Id%20eq%20%27opencode%27%20and%20IsLatestVersion&$select=Version",
-              ).pipe(HttpClientRequest.setHeaders({ Accept: "application/json;odata=verbose" })),
-            )
-            const data = yield* HttpClientResponse.schemaBodyJson(ChocoPackage)(response)
-            return data.d.results[0].Version
-          }
-
-          if (detectedMethod === "scoop") {
-            const response = yield* httpOk.execute(
-              HttpClientRequest.get(
-                "https://raw.githubusercontent.com/ScoopInstaller/Main/master/bucket/opencode.json",
-              ).pipe(HttpClientRequest.setHeaders({ Accept: "application/json" })),
-            )
-            const data = yield* HttpClientResponse.schemaBodyJson(ScoopManifest)(response)
-            return data.version
-          }
-
-          const response = yield* httpOk.execute(
-            HttpClientRequest.get("https://api.github.com/repos/anomalyco/opencode/releases/latest").pipe(
-              HttpClientRequest.acceptJson,
-            ),
-          )
-          const data = yield* HttpClientResponse.schemaBodyJson(GitHubRelease)(response)
-          return data.tag_name.replace(/^v/, "")
-        }, Effect.orDie)
+        const latestImpl = Effect.fn("Installation.latest")(function* (_method?: Method) {
+          return VERSION as string
+        })
 
         const upgradeImpl = Effect.fn("Installation.upgrade")(function* (m: Method, target: string) {
           let result: { code: ChildProcessSpawner.ExitCode; stdout: string; stderr: string } | undefined

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+bun.lock
+*.lock
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.apk

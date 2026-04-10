@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OpenCode Remote</string>
+    <string name="server_url">服务器地址</string>
+    <string name="token">Token</string>
+    <string name="connect">连接</string>
+    <string name="disconnect">断开连接</string>
+    <string name="connecting">连接中…</string>
+    <string name="connected">已连接</string>
+    <string name="disconnected">未连接</string>
+    <string name="sessions">会话列表</string>
+    <string name="idle">空闲</string>
+    <string name="busy">工作中</string>
+    <string name="retry">重试中</string>
+    <string name="permissions">权限请求</string>
+    <string name="allow_once">允许一次</string>
+    <string name="allow_always">始终允许</string>
+    <string name="reject">拒绝</string>
+    <string name="send">发送</string>
+    <string name="abort">中止</string>
+    <string name="new_session">新建会话</string>
+    <string name="message_hint">输入消息…</string>
+    <string name="no_sessions">暂无会话</string>
+    <string name="no_permissions">暂无权限请求</string>
+    <string name="url_hint">ws://your-server:3100</string>
+    <string name="save_settings">保存设置</string>
+</resources>
