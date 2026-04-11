@@ -1411,13 +1411,11 @@ export namespace Provider {
 
           const customFetch = options["fetch"]
           const chunkTimeout = options["chunkTimeout"]
-          const proxyUrl = typeof options["proxy"] === "string" ? options["proxy"] : undefined
           delete options["chunkTimeout"]
 
           options["fetch"] = async (input: any, init?: BunFetchRequestInit) => {
             const fetchFn = customFetch ?? fetch
             const opts = init ?? {}
-            if (proxyUrl) (opts as any).proxy = proxyUrl
             const chunkAbortCtl =
               typeof chunkTimeout === "number" && chunkTimeout > 0 ? new AbortController() : undefined
             const signals: AbortSignal[] = []

@@ -894,12 +894,6 @@ export namespace Config {
             .describe(
               "Timeout in milliseconds between streamed SSE chunks for this provider. If no chunk arrives within this window, the request is aborted.",
             ),
-          proxy: z
-            .string()
-            .optional()
-            .describe(
-              "HTTP proxy URL for this provider (e.g. http://127.0.0.1:7897). Only affects API calls to this provider.",
-            ),
         })
         .catchall(z.any())
         .optional(),

@@ -16,17 +16,6 @@ const CODEX_API_ENDPOINT = "https://chatgpt.com/backend-api/codex/responses"
 const OAUTH_PORT = 1455
 const OAUTH_POLLING_SAFETY_MARGIN_MS = 3000
 
-let _proxy: string | undefined
-
-export function setProxy(url: string | undefined) {
-  _proxy = url
-}
-
-function fetchWithProxy(url: string | URL, init: RequestInit & { proxy?: string } = {}): Promise<Response> {
-  const opts = _proxy ? { ...init, proxy: _proxy } : init
-  return fetch(url, opts as any)
-}
-
 interface PkceCodes {
   verifier: string
   challenge: string
@@ -123,7 +112,7 @@ interface TokenResponse {
 }
 
 async function exchangeCodeForTokens(code: string, redirectUri: string, pkce: PkceCodes): Promise<TokenResponse> {
-  const response = await fetchWithProxy(`${ISSUER}/oauth/token`, {
+  const response = await fetch(`${ISSUER}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -135,14 +124,13 @@ async function exchangeCodeForTokens(code: string, redirectUri: string, pkce: Pk
     }).toString(),
   })
   if (!response.ok) {
-    const text = await response.text().catch(() => "")
-    throw new Error(`Token exchange failed: ${response.status}${text ? ` — ${text}` : ""}`)
+    throw new Error(`Token exchange failed: ${response.status}`)
   }
   return response.json()
 }
 
 async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> {
-  const response = await fetchWithProxy(`${ISSUER}/oauth/token`, {
+  const response = await fetch(`${ISSUER}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -152,8 +140,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> 
     }).toString(),
   })
   if (!response.ok) {
-    const text = await response.text().catch(() => "")
-    throw new Error(`Token refresh failed: ${response.status}${text ? ` — ${text}` : ""}`)
+    throw new Error(`Token refresh failed: ${response.status}`)
   }
   return response.json()
 }
@@ -377,9 +364,6 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
       async loader(getAuth, provider) {
         const auth = await getAuth()
         if (auth.type !== "oauth") return {}
-
-        const proxy = (provider as any).options?.proxy
-        if (typeof proxy === "string") setProxy(proxy)
 
         // Filter models to only allowed Codex models for OAuth
         const allowedModels = new Set([
