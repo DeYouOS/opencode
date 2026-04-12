@@ -86,6 +86,9 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
                     }
                 },
                 actions = {
+                    IconButton(onClick = { vm.createSession(); onBack() }) {
+                        Icon(Icons.Default.Add, "新建会话")
+                    }
                     if (providers.isNotEmpty()) {
                         IconButton(onClick = { showModelPicker = true }) {
                             Icon(Icons.Default.Settings, "模型选择")
