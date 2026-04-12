@@ -180,27 +180,34 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit, on
                             elevation = CardDefaults.cardElevation(1.dp),
                             shape = RoundedCornerShape(12.dp)
                         ) {
+                            // 整个 question 事件包含多个子 question，必须全部回答后才能提交
+                            val answerMap = remember { mutableStateOf<Map<Int, List<String>>>(emptyMap()) }
+                            val total = item.data.questions.size
                             Column(Modifier.padding(12.dp)) {
-                                item.data.questions.forEachIndexed { idx, q ->
-                                    if (idx > 0) Spacer(Modifier.height(8.dp))
+                                item.data.questions.forEachIndexed { qi, q ->
+                                    if (qi > 0) Spacer(Modifier.height(8.dp))
                                     if (q.header.isNotBlank()) {
                                         Text(q.header, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                                         Spacer(Modifier.height(2.dp))
                                     }
                                     Text(q.question, style = MaterialTheme.typography.bodySmall)
                                     Spacer(Modifier.height(6.dp))
-                                    // 多选模式：记录选中项
-                                    val selected = remember(idx) { mutableStateOf<Set<String>>(emptySet()) }
                                     val isMultiple = q.multiple == true
+                                    val currentAnswers = answerMap.value[qi].orEmpty()
                                     q.options.forEach { opt ->
-                                        val isSelected = isMultiple && opt.label in selected.value
+                                        val isSelected = opt.label in currentAnswers
                                         Card(
                                             onClick = {
+                                                val cur = answerMap.value.toMutableMap()
                                                 if (isMultiple) {
-                                                    selected.value = if (isSelected) selected.value - opt.label else selected.value + opt.label
+                                                    val list = cur[qi].orEmpty().toMutableList()
+                                                    if (isSelected) list.remove(opt.label) else list.add(opt.label)
+                                                    cur[qi] = list
                                                 } else {
-                                                    vm.replyQuestion(item.data.sessionID, item.data.id, opt.label)
+                                                    // 单选：直接设答案
+                                                    cur[qi] = listOf(opt.label)
                                                 }
+                                                answerMap.value = cur
                                             },
                                             modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                                             shape = RoundedCornerShape(8.dp),
@@ -224,28 +231,30 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit, on
                                             }
                                         }
                                     }
-                                    Spacer(Modifier.height(6.dp))
-                                    if (isMultiple) {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Button(
-                                                onClick = { vm.replyQuestion(item.data.sessionID, item.data.id, selected.value.joinToString(", ")) },
-                                                enabled = selected.value.isNotEmpty(),
-                                                shape = RoundedCornerShape(8.dp),
-                                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
-                                            ) { Text("确认选择 (${selected.value.size})", style = MaterialTheme.typography.labelMedium) }
-                                            OutlinedButton(
-                                                onClick = { vm.rejectQuestion(item.data.sessionID, item.data.id) },
-                                                shape = RoundedCornerShape(8.dp),
-                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                                            ) { Text("跳过", style = MaterialTheme.typography.labelMedium) }
-                                        }
-                                    } else {
-                                        OutlinedButton(
-                                            onClick = { vm.rejectQuestion(item.data.sessionID, item.data.id) },
-                                            shape = RoundedCornerShape(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                                        ) { Text("跳过", style = MaterialTheme.typography.labelMedium) }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                val answeredCount = answerMap.value.count { it.value.isNotEmpty() }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = {
+                                            // 所有子 question 都有答案后才能提交，未回答的用空数组
+                                            val answers = item.data.questions.mapIndexed { i, _ ->
+                                                answerMap.value[i].orEmpty()
+                                            }
+                                            vm.replyQuestion(item.data.sessionID, item.data.id, answers.map { it.joinToString(", ") }.joinToString("; "))
+                                        },
+                                        enabled = answeredCount == total,
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                                    ) {
+                                        val label = if (answeredCount == total) "确认提交" else "确认提交 ($answeredCount/$total)"
+                                        Text(label, style = MaterialTheme.typography.labelMedium)
                                     }
+                                    OutlinedButton(
+                                        onClick = { vm.rejectQuestion(item.data.sessionID, item.data.id) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                    ) { Text("跳过", style = MaterialTheme.typography.labelMedium) }
                                 }
                             }
                         }
