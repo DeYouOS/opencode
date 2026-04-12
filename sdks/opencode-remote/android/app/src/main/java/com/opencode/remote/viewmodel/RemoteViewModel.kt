@@ -414,8 +414,10 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             "event.command.list" -> {
+                val obj = data as? kotlinx.serialization.json.JsonObject ?: return
+                val cmds = obj["commands"] as? kotlinx.serialization.json.JsonArray ?: return
                 val list = json.decodeFromJsonElement(
-                    kotlinx.serialization.builtins.ListSerializer(CommandInfo.serializer()), data
+                    kotlinx.serialization.builtins.ListSerializer(CommandInfo.serializer()), cmds
                 )
                 _commands.value = list
             }
