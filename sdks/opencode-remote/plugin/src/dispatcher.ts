@@ -138,8 +138,11 @@ export async function dispatch(action: RemoteAction, input: PluginInput, send?: 
       break
 
     case "action.session.create":
-      await client.session.create({
-        body: { title: action.data.title },
+      // 执行 /new 命令，等同于 PC 端按 /new，会自动创建并切入新会话
+      await fetch(`${base}/session/${action.data.sessionID}/command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "new" }),
       })
       break
 
