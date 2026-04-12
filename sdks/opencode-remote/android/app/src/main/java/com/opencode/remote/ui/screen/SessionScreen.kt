@@ -176,50 +176,76 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit, on
                     is TimelineItem.Question -> {
                         Card(
                             Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
                             elevation = CardDefaults.cardElevation(1.dp),
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Column(Modifier.padding(12.dp)) {
                                 item.data.questions.forEachIndexed { idx, q ->
                                     if (idx > 0) Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        q.header.take(30),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                    if (q.header.isNotBlank()) {
+                                        Text(q.header, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                        Spacer(Modifier.height(2.dp))
+                                    }
                                     Text(q.question, style = MaterialTheme.typography.bodySmall)
                                     Spacer(Modifier.height(6.dp))
+                                    // 多选模式：记录选中项
+                                    val selected = remember(idx) { mutableStateOf<Set<String>>(emptySet()) }
+                                    val isMultiple = q.multiple == true
                                     q.options.forEach { opt ->
-                                        Text(
-                                            "• ${opt.label}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    item.data.questions.firstOrNull()?.options?.firstOrNull()?.let { first ->
-                                        Button(
+                                        val isSelected = isMultiple && opt.label in selected.value
+                                        Card(
                                             onClick = {
-                                                vm.replyQuestion(
-                                                    item.data.sessionID,
-                                                    item.data.id,
-                                                    first.label
-                                                )
+                                                if (isMultiple) {
+                                                    selected.value = if (isSelected) selected.value - opt.label else selected.value + opt.label
+                                                } else {
+                                                    vm.replyQuestion(item.data.sessionID, item.data.id, opt.label)
+                                                }
                                             },
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = if (isSelected) Color(0xFFE3F2FD) else Color(0xFFF5F5F5)
+                                            )
+                                        ) {
+                                            Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    if (isMultiple) (if (isSelected) "☑" else "☐") else "○",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                                Column(Modifier.weight(1f)) {
+                                                    Text(opt.label, style = MaterialTheme.typography.bodyMedium, color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                                                    if (opt.description.isNotBlank()) {
+                                                        Text(opt.description, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    if (isMultiple) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Button(
+                                                onClick = { vm.replyQuestion(item.data.sessionID, item.data.id, selected.value.joinToString(", ")) },
+                                                enabled = selected.value.isNotEmpty(),
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                                            ) { Text("确认选择 (${selected.value.size})", style = MaterialTheme.typography.labelMedium) }
+                                            OutlinedButton(
+                                                onClick = { vm.rejectQuestion(item.data.sessionID, item.data.id) },
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                            ) { Text("跳过", style = MaterialTheme.typography.labelMedium) }
+                                        }
+                                    } else {
+                                        OutlinedButton(
+                                            onClick = { vm.rejectQuestion(item.data.sessionID, item.data.id) },
                                             shape = RoundedCornerShape(8.dp),
                                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                                        ) { Text("选择", style = MaterialTheme.typography.labelMedium) }
+                                        ) { Text("跳过", style = MaterialTheme.typography.labelMedium) }
                                     }
-                                    OutlinedButton(
-                                        onClick = {
-                                            vm.rejectQuestion(item.data.sessionID, item.data.id)
-                                        },
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                                    ) { Text("跳过", style = MaterialTheme.typography.labelMedium) }
                                 }
                             }
                         }
