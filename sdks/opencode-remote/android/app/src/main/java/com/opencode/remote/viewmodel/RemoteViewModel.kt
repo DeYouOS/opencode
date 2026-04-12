@@ -392,7 +392,7 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
                     mutableSetOf(iid), info.project.ifBlank { info.directory.substringAfterLast("/") }, info.directory,
                     info.sessions.map { SessionInfo(it.id, it.title, it.status, iid) }
                 ))
-                _sessions.value = _terminals.value.values.flatMap { it.sessions }
+                _sessions.value = _terminals.value.values.flatMap { it.sessions }.distinctBy { it.id }
             }
 
             "event.instance.disconnected" -> {
@@ -401,7 +401,7 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
                 // 直接移除该实例的终端卡片
                 if (iid in _terminals.value) {
                     _terminals.value = _terminals.value - iid
-                    _sessions.value = _terminals.value.values.flatMap { it.sessions }
+                    _sessions.value = _terminals.value.values.flatMap { it.sessions }.distinctBy { it.id }
                 }
             }
 
@@ -410,7 +410,7 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
                 val online = info.instanceIds.toSet()
                 // 只保留在线的终端，清理已断开的
                 _terminals.value = _terminals.value.filterKeys { it in online }
-                _sessions.value = _terminals.value.values.flatMap { it.sessions }
+                _sessions.value = _terminals.value.values.flatMap { it.sessions }.distinctBy { it.id }
             }
 
             "event.command.list" -> {
