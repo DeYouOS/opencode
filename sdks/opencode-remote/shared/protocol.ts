@@ -141,6 +141,7 @@ export type TodoUpdateEvent = {
 export type InstanceInfoEvent = {
   type: "event.instance.info"
   data: {
+    instanceId: string
     version: string
     project: string
     directory: string
@@ -149,6 +150,22 @@ export type InstanceInfoEvent = {
       title: string
       status: "idle" | "busy" | "retry"
     }>
+  }
+}
+
+/** 实例断开事件 — plugin 断开时 relay 通知 phone 移除对应终端 */
+export type InstanceDisconnectedEvent = {
+  type: "event.instance.disconnected"
+  data: {
+    instanceId: string
+  }
+}
+
+/** 实例同步事件 — phone 连接时 relay 推送当前所有在线 plugin 列表 */
+export type InstanceSyncEvent = {
+  type: "event.instance.sync"
+  data: {
+    instanceIds: string[]
   }
 }
 
@@ -172,6 +189,77 @@ export type MessageInfoEvent = {
   }
 }
 
+/** Agent 向用户提问事件 */
+export type QuestionAskedEvent = {
+  type: "event.question.asked"
+  data: {
+    id: string
+    sessionID: string
+    questions: Array<{
+      question: string
+      header: string
+      options: Array<{
+        label: string
+        description: string
+      }>
+      multiple?: boolean
+      custom?: boolean
+    }>
+    tool?: {
+      messageID: string
+      callID: string
+    }
+  }
+}
+
+/** 问题已回复事件 */
+export type QuestionRepliedEvent = {
+  type: "event.question.replied"
+  data: {
+    sessionID: string
+    requestID: string
+    answers: string[][]
+  }
+}
+
+/** 问题已拒绝事件 */
+export type QuestionRejectedEvent = {
+  type: "event.question.rejected"
+  data: {
+    sessionID: string
+    requestID: string
+  }
+}
+
+/** Action 执行错误事件（Plugin → Phone 错误反馈） */
+export type ActionErrorEvent = {
+  type: "event.action.error"
+  data: {
+    sessionID?: string
+    actionType: string
+    error: string
+  }
+}
+
+/** 可用模型列表事件 — Plugin 推送给 Phone */
+export type ProviderListEvent = {
+  type: "event.provider.list"
+  data: {
+    providers: Array<{
+      id: string
+      name: string
+      connected: boolean
+      models: Array<{
+        id: string
+        name: string
+        reasoning: boolean
+        context: number
+        output: number
+      }>
+    }>
+  }
+}
+
 /** 所有事件类型的联合 */
 export type RemoteEvent =
   | PermissionEvent
@@ -184,6 +272,14 @@ export type RemoteEvent =
   | TodoUpdateEvent
   | InstanceInfoEvent
   | MessageInfoEvent
+  | QuestionAskedEvent
+  | QuestionRepliedEvent
+  | QuestionRejectedEvent
+  | ActionErrorEvent
+  | ProviderListEvent
+  | InstanceDisconnectedEvent
+  | InstanceSyncEvent
+  | CommandListEvent
 
 // ============================================================
 // 操作（Phone → Relay → OpenCode）
@@ -208,6 +304,37 @@ export type SessionMessageAction = {
     sessionID: string
     content: string
     agent?: string
+    model?: {
+      providerID: string
+      modelID: string
+    }
+  }
+}
+
+/** 执行斜杠命令（如 /commit, /help 等） */
+export type SessionCommandAction = {
+  type: "action.session.command"
+  data: {
+    sessionID: string
+    command: string
+    arguments?: string
+    agent?: string
+    model?: {
+      providerID: string
+      modelID: string
+    }
+  }
+}
+
+/** 命令列表事件 — 连接时推送所有可用命令 */
+export type CommandListEvent = {
+  type: "event.command.list"
+  data: {
+    commands: Array<{
+      name: string
+      description?: string
+      hints?: string[]
+    }>
   }
 }
 
@@ -261,6 +388,7 @@ export type RemoteAction =
   | QuestionReplyAction
   | QuestionRejectAction
   | RefreshAction
+  | SessionCommandAction
 
 // ============================================================
 // 认证
