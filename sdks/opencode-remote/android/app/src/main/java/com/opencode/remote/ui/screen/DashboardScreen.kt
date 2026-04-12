@@ -42,10 +42,12 @@ fun DashboardScreen(
     val permissions by vm.permissions.collectAsState()
     val state by vm.client.state.collectAsState()
 
-    // 启动时自动连接
+    // 启动时自动连接（已连接则跳过，避免导航返回时重复连接）
     LaunchedEffect(Unit) {
-        val cfg = ctx.loadConfig()
-        vm.connect(cfg.url, cfg.token)
+        if (state !is WsState.Connected && state !is WsState.Connecting) {
+            val cfg = ctx.loadConfig()
+            vm.connect(cfg.url, cfg.token)
+        }
     }
 
     // 每个 session 对应的目录
