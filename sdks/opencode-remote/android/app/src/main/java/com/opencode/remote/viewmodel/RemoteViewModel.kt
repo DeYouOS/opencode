@@ -122,7 +122,11 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
                     // 清空 sessions 避免残留
                     _sessions.value = emptyList()
                     val action = RefreshAction()
-                    client.send(json.encodeToString(RefreshAction.serializer(), action))
+                    val encoded = json.encodeToString(RefreshAction.serializer(), action)
+                    client.send(encoded)
+                    // 延迟再发一次，确保 plugin 已准备好（解决同时连接的竞态）
+                    kotlinx.coroutines.delay(3000)
+                    client.send(encoded)
                 }
             }
         }

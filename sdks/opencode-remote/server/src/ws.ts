@@ -74,7 +74,7 @@ export function createWsHandler(token: string, pluginQueue: Queue, phoneQueue: Q
       }
       sendEnvelope(ws, { seq: 0, ts: Date.now(), payload: sync })
       // 通知所有 plugin 重新推送信息（instanceInfo、providerList、commandList）
-      broadcastToPlugins({ seq: 0, ts: Date.now(), payload: { type: "action.refresh" } as RemoteAction })
+      broadcastToPlugins({ seq: 1, ts: Date.now(), payload: { type: "action.refresh" } as RemoteAction })
     }
 
     const q = role === "plugin" ? pluginQueue : phoneQueue
