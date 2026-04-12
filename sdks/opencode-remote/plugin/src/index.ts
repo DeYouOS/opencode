@@ -1,23 +1,47 @@
+import { randomUUID } from "crypto"
 import type { PluginModule, PluginInput, Hooks } from "@opencode-ai/plugin"
 import type { Event } from "@opencode-ai/sdk"
 import { connect } from "./ws"
 import { mapEvent } from "./mapper"
-import { dispatch } from "./dispatcher"
-import type { RemoteAction, InstanceInfoEvent, WsEnvelope } from "../../shared/protocol"
+import { dispatch, fetchProviderList, fetchCommandList } from "./dispatcher"
+import type {
+  RemoteAction,
+  InstanceInfoEvent,
+  ProviderListEvent,
+  CommandListEvent,
+  WsEnvelope,
+} from "../../shared/protocol"
 
-async function pushInstanceInfo(input: PluginInput, send: (e: InstanceInfoEvent) => void) {
+type SessionItem = {
+  id: string
+  title: string
+  status?: { type?: string }
+}
+
+// 用 serverUrl 直接 fetch，绕过 v1 SDK 不支持 roots 参数的问题
+async function listRootSessions(serverUrl: URL, directory: string): Promise<SessionItem[]> {
+  const base = serverUrl.toString().replace(/\/$/, "")
+  const dir = encodeURIComponent(directory)
+  const res = await fetch(`${base}/session?directory=${dir}&roots=true`)
+  return (await res.json()) as SessionItem[]
+}
+
+async function pushInstanceInfo(instanceId: string, input: PluginInput, send: (e: InstanceInfoEvent) => void) {
   try {
-    const res = await input.client.session.list()
-    const sessions = (res.data ?? []) as Array<{
-      id: string
-      title: string
-      status?: { type?: string }
-    }>
+    let sessions: SessionItem[]
+    try {
+      sessions = await listRootSessions(input.serverUrl, input.directory ?? "")
+    } catch {
+      // fetch 失败时 fallback 到 SDK（不带 roots 过滤）
+      const res = await input.client.session.list({ directory: input.directory })
+      sessions = (res.data ?? []) as SessionItem[]
+    }
     send({
       type: "event.instance.info",
       data: {
+        instanceId,
         version: "",
-        project: input.project.id ?? "",
+        project: input.directory?.split("/").filter(Boolean).pop() ?? input.project.id ?? "",
         directory: input.directory ?? "",
         sessions: sessions.map((s) => ({
           id: s.id,
@@ -26,9 +50,14 @@ async function pushInstanceInfo(input: PluginInput, send: (e: InstanceInfoEvent)
         })),
       },
     })
-  } catch (e) {
-    console.error("[remote] pushInstanceInfo 失败:", e)
-  }
+  } catch {}
+}
+
+async function pushProviderList(input: PluginInput, send: (e: ProviderListEvent) => void) {
+  try {
+    const data = await fetchProviderList(input)
+    send({ type: "event.provider.list", data })
+  } catch {}
 }
 
 const plugin: PluginModule = {
@@ -37,24 +66,26 @@ const plugin: PluginModule = {
   async server(input: PluginInput, options): Promise<Hooks> {
     const url = (options?.relay_url as string) ?? process.env.OPENCODE_REMOTE_URL
     const token = (options?.relay_token as string) ?? process.env.OPENCODE_REMOTE_TOKEN
-    if (!url || !token) {
-      console.error("[remote] 缺少 relay_url 或 relay_token 配置")
-      return {}
-    }
+    if (!url || !token) return {}
 
-    const ws = connect(url, token, input)
+    const instanceId = `term-${process.pid}-${randomUUID().slice(0, 8)}`
+    const ws = connect(url, token, instanceId)
 
     ws.onConnected(() => {
-      pushInstanceInfo(input, (e) => ws.send(e))
+      pushInstanceInfo(instanceId, input, (e) => ws.send(e))
+      pushProviderList(input, (e) => ws.send(e))
+      fetchCommandList(input).then((data) => {
+        ws.send({ type: "event.command.list", data } satisfies CommandListEvent)
+      })
     })
 
     ws.onAction((env: WsEnvelope) => {
       const action = env.payload as RemoteAction
       if (action.type === "action.refresh") {
-        pushInstanceInfo(input, (e) => ws.send(e))
+        pushInstanceInfo(instanceId, input, (e) => ws.send(e))
         return
       }
-      dispatch(action, input).catch((e) => console.error("[remote] dispatch 失败:", e))
+      dispatch(action, input, (e) => ws.send(e)).catch(() => {})
     })
 
     return {

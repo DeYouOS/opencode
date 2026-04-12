@@ -10,9 +10,55 @@ import type {
   ToolUpdateEvent,
   TodoUpdateEvent,
   MessageInfoEvent,
+  QuestionAskedEvent,
+  QuestionRepliedEvent,
+  QuestionRejectedEvent,
 } from "../../shared/protocol"
 
-export function mapEvent(event: Event): RemoteEvent | null {
+type AnyEvent = Event & { type: string; properties: Record<string, any> }
+
+export function mapEvent(event: AnyEvent): RemoteEvent | null {
+  const type = event.type as string
+  const props = event.properties as Record<string, any>
+
+  // Question 事件不在 V1 SDK 类型定义中，需要单独处理
+  if (type === "question.asked") {
+    return {
+      type: "event.question.asked",
+      data: {
+        id: props.id,
+        sessionID: props.sessionID,
+        questions: props.questions.map((q: any) => ({
+          question: q.question,
+          header: q.header,
+          options: q.options.map((o: any) => ({ label: o.label, description: o.description })),
+          multiple: q.multiple,
+          custom: q.custom,
+        })),
+        tool: props.tool,
+      },
+    } satisfies QuestionAskedEvent
+  }
+  if (type === "question.replied") {
+    return {
+      type: "event.question.replied",
+      data: {
+        sessionID: props.sessionID,
+        requestID: props.requestID,
+        answers: props.answers,
+      },
+    } satisfies QuestionRepliedEvent
+  }
+  if (type === "question.rejected") {
+    return {
+      type: "event.question.rejected",
+      data: {
+        sessionID: props.sessionID,
+        requestID: props.requestID,
+      },
+    } satisfies QuestionRejectedEvent
+  }
+
   switch (event.type) {
     case "permission.updated":
       return {
@@ -53,6 +99,8 @@ export function mapEvent(event: Event): RemoteEvent | null {
     case "session.updated":
     case "session.deleted": {
       const info = event.properties.info
+      // 过滤子 agent 会话（有 parentID 的是后台任务，不需要推送到 App）
+      if ((info.parentID as string | undefined) && event.type !== "session.deleted") return null
       const mapped =
         event.type === "session.created"
           ? "event.session.created"
@@ -77,11 +125,8 @@ export function mapEvent(event: Event): RemoteEvent | null {
           sessionID: event.properties.sessionID,
           error: event.properties.error
             ? {
-                name: event.properties.error.name,
-                message:
-                  "data" in event.properties.error
-                    ? String((event.properties.error as Record<string, unknown>).data)
-                    : undefined,
+                name: (event.properties.error as Record<string, unknown>).name as string,
+                message: (event.properties.error as Record<string, unknown>).message as string | undefined,
               }
             : undefined,
         },
@@ -154,7 +199,7 @@ export function mapEvent(event: Event): RemoteEvent | null {
             error: msg.error
               ? {
                   name: msg.error.name,
-                  message: "data" in msg.error ? String((msg.error as Record<string, unknown>).data) : undefined,
+                  message: (msg.error as Record<string, unknown>).message as string | undefined,
                 }
               : undefined,
           },
