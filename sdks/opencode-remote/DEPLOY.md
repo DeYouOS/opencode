@@ -25,7 +25,17 @@ Plugin (OpenCode 本地) ←→ Relay Server (远程中继) ←→ Phone App (An
 | WS 端点     | `ws://101.34.243.224:3100/ws`                                                                                  |
 | RELAY_TOKEN | `opencode-remote-2024`                                                                                         |
 | 运行时      | Bun (`/usr/local/bin/bun`)                                                                                     |
+| 心跳间隔    | 15 秒（plugin/phone 超时自动断开）                                                                             |
 | 启动命令    | `RELAY_TOKEN=opencode-remote-2024 PORT=3100 nohup /usr/local/bin/bun run src/index.ts > /tmp/relay.log 2>&1 &` |
+
+### 事件机制
+
+| 事件                          | 方向    | 触发时机                                       |
+| ----------------------------- | ------- | ---------------------------------------------- |
+| `event.instance.info`         | → Phone | plugin 连接后、App 刷新时推送终端会话列表      |
+| `event.instance.disconnected` | → Phone | plugin 断开时通知 App 移除对应终端             |
+| `event.instance.sync`         | → Phone | phone 连接后推送当前所有在线 plugin instanceId |
+| `event.command.list`          | → Phone | plugin 连接后推送可用斜杠命令列表              |
 
 ### 推送更新
 
