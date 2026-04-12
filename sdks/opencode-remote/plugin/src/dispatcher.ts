@@ -138,12 +138,23 @@ export async function dispatch(action: RemoteAction, input: PluginInput, send?: 
       break
 
     case "action.session.create":
-      // 执行 /new 命令，等同于 PC 端按 /new，会自动创建并切入新会话
-      await fetch(`${base}/session/${action.data.sessionID}/command`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command: "new" }),
-      })
+      // 创建新会话，然后让 PC TUI 自动切入
+      {
+        const res = await fetch(`${base}/session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        })
+        const data = (await res.json()) as any
+        if (data?.id) {
+          // 通知 TUI 切换到新会话
+          await fetch(`${base}/tui/select-session`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionID: data.id }),
+          })
+        }
+      }
       break
 
     case "action.question.reply":
