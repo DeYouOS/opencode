@@ -33,17 +33,12 @@ export async function fetchProviderList(input: PluginInput): Promise<ProviderLis
 
 // 获取后端注册的所有命令列表
 export async function fetchCommandList(input: PluginInput): Promise<CommandListEvent["data"]> {
-  const base = input.serverUrl.toString().replace(/\/$/, "")
-  const res = await fetch(`${base}/session/command`)
-  const list = (await res.json()) as Array<{
+  const res = await input.client.command.list()
+  const list = res.data as any as Array<{
     name: string
     description?: string
     hints?: string[]
-    agent?: string
-    model?: string
-    source?: string
     subtask?: boolean
-    template?: string
   }>
   return {
     commands: list

@@ -97,28 +97,6 @@ export const SessionRoutes = lazy(() =>
       },
     )
     .get(
-      "/command",
-      describeRoute({
-        summary: "List commands",
-        description: "Get a list of all available commands.",
-        operationId: "session.command.list",
-        responses: {
-          200: {
-            description: "List of commands",
-            content: {
-              "application/json": {
-                schema: resolver(z.array(Command.Info)),
-              },
-            },
-          },
-        },
-      }),
-      async (c) => {
-        const list = await Command.list()
-        return c.json(list)
-      },
-    )
-    .get(
       "/:sessionID",
       describeRoute({
         summary: "Get session",
@@ -891,6 +869,28 @@ export const SessionRoutes = lazy(() =>
         })
 
         return c.body(null, 204)
+      },
+    )
+    .get(
+      "/command",
+      describeRoute({
+        summary: "List commands",
+        description: "Get a list of all available commands.",
+        operationId: "session.command.list",
+        responses: {
+          200: {
+            description: "List of commands",
+            content: {
+              "application/json": {
+                schema: resolver(z.array(Command.Info)),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        const list = await Command.list()
+        return c.json(list)
       },
     )
     .post(
