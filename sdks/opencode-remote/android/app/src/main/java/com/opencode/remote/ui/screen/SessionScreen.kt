@@ -18,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.runtime.collectAsState
 import com.opencode.remote.data.ModelRef
 import com.opencode.remote.data.ProviderInfo
 import com.opencode.remote.ui.component.MessageBubble
@@ -42,6 +44,8 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
     val todos = todoMap[sessionID].orEmpty()
     val info = infoMap[sessionID]
     var input by remember { mutableStateOf("") }
+    // 收集可用的斜杠命令列表
+    val commands by vm.commands.collectAsState()
     var showModelPicker by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
@@ -116,19 +120,60 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
                             Text("停止生成", style = MaterialTheme.typography.labelLarge)
                         }
                     } else {
-                        OutlinedTextField(
-                            value = input,
-                            onValueChange = { input = it },
-                            modifier = Modifier.weight(1f),
-                            placeholder = { Text("输入消息…", style = MaterialTheme.typography.bodySmall) },
-                            singleLine = true,
-                            shape = RoundedCornerShape(20.dp),
-                            textStyle = MaterialTheme.typography.bodySmall,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        // 过滤斜杠命令：根据输入前缀匹配命令名
+                        val prefix = input.trimStart('/')
+                        val filteredCommands = commands.filter { cmd ->
+                            if (prefix.isEmpty()) true
+                            else cmd.name.startsWith(prefix) || cmd.name.contains(prefix)
+                        }.take(6) // 最多显示 6 条
+                        val showCommandMenu = input.startsWith("/") && filteredCommands.isNotEmpty()
+
+                        Box(modifier = Modifier.weight(1f)) {
+                            OutlinedTextField(
+                                value = input,
+                                onValueChange = { input = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                placeholder = { Text("输入消息…", style = MaterialTheme.typography.bodySmall) },
+                                singleLine = true,
+                                shape = RoundedCornerShape(20.dp),
+                                textStyle = MaterialTheme.typography.bodySmall,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                )
                             )
-                        )
+                            // 斜杠命令选择菜单
+                            DropdownMenu(
+                                expanded = showCommandMenu,
+                                onDismissRequest = { input = "" } // 点击外部清空输入，关闭菜单
+                            ) {
+                                filteredCommands.forEach { cmd ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Column {
+                                                Text(
+                                                    text = "/${cmd.name}",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                if (cmd.description != null) {
+                                                    Text(
+                                                        text = cmd.description,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onClick = {
+                                            input = "/${cmd.name} "
+                                            // 菜单会自动关闭，因为 showCommandMenu 变为 false
+                                        }
+                                    )
+                                }
+                            }
+                        }
                         Spacer(Modifier.width(6.dp))
                         FilledIconButton(
                             onClick = {
