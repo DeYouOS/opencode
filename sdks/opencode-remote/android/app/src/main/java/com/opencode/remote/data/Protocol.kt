@@ -131,10 +131,21 @@ data class InstanceInfoSession(
 
 @Serializable
 data class InstanceInfoData(
+    val instanceId: String = "",
     val version: String,
     val project: String,
     val directory: String,
     val sessions: List<InstanceInfoSession>
+)
+
+@Serializable
+data class InstanceDisconnectedData(
+    val instanceId: String
+)
+
+@Serializable
+data class InstanceSyncData(
+    val instanceIds: List<String>
 )
 
 @Serializable
@@ -152,6 +163,84 @@ data class TokenInfo(
     val input: Int,
     val output: Int,
     val reasoning: Int
+)
+
+// ── Question 事件数据 ──
+
+@Serializable
+data class QuestionOption(
+    val label: String,
+    val description: String
+)
+
+@Serializable
+data class QuestionInfo(
+    val question: String,
+    val header: String,
+    val options: List<QuestionOption>,
+    val multiple: Boolean? = null,
+    val custom: Boolean? = null
+)
+
+@Serializable
+data class QuestionAskedData(
+    val id: String,
+    val sessionID: String,
+    val questions: List<QuestionInfo>,
+    val tool: QuestionToolRef? = null
+)
+
+@Serializable
+data class QuestionToolRef(
+    val messageID: String,
+    val callID: String
+)
+
+@Serializable
+data class QuestionRepliedData(
+    val sessionID: String,
+    val requestID: String,
+    val answers: List<List<String>>
+)
+
+@Serializable
+data class QuestionRejectedData(
+    val sessionID: String,
+    val requestID: String
+)
+
+// ── Action 错误反馈 ──
+
+@Serializable
+data class ActionErrorData(
+    val sessionID: String? = null,
+    val actionType: String,
+    val error: String
+)
+
+// ── Provider/Model 列表 ──
+
+@Serializable
+data class ModelItem(
+    val id: String,
+    val name: String,
+    val reasoning: Boolean = false,
+    val context: Int = 0,
+    val output: Int = 0
+)
+
+@Serializable
+data class ProviderInfo(
+    val id: String,
+    val name: String,
+    val connected: Boolean = false,
+    val models: List<ModelItem> = emptyList()
+)
+
+@Serializable
+data class ModelRef(
+    val providerID: String,
+    val modelID: String
 )
 
 // ── 操作（Phone → Relay → OpenCode） ──
@@ -180,7 +269,8 @@ data class SessionMessageAction(
 data class SessionMessageData(
     val sessionID: String,
     val content: String,
-    val agent: String? = null
+    val agent: String? = null,
+    val model: ModelRef? = null
 )
 
 @Serializable
@@ -205,4 +295,53 @@ data class SessionCreateData(val title: String? = null)
 data class RefreshAction(
     val type: String = "action.refresh",
     val data: JsonObject = JsonObject(emptyMap())
+)
+
+@Serializable
+data class QuestionReplyAction(
+    val type: String = "action.question.reply",
+    val data: QuestionReplyData
+)
+
+@Serializable
+data class QuestionReplyData(
+    val sessionID: String,
+    val questionID: String,
+    val answer: String
+)
+
+@Serializable
+data class QuestionRejectAction(
+    val type: String = "action.question.reject",
+    val data: QuestionRejectData
+)
+
+@Serializable
+data class QuestionRejectData(
+    val sessionID: String,
+    val questionID: String
+)
+
+// ── 命令相关 ──
+
+@Serializable
+data class CommandInfo(
+    val name: String,
+    val description: String? = null,
+    val hints: List<String>? = null
+)
+
+@Serializable
+data class SessionCommandAction(
+    val type: String = "action.session.command",
+    val data: SessionCommandData
+)
+
+@Serializable
+data class SessionCommandData(
+    val sessionID: String,
+    val command: String,
+    val arguments: String? = null,
+    val agent: String? = null,
+    val model: ModelRef? = null
 )

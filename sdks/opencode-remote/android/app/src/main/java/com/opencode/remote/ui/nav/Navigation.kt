@@ -14,14 +14,15 @@ import com.opencode.remote.viewmodel.RemoteViewModel
 @Composable
 fun AppNavigation(vm: RemoteViewModel = viewModel()) {
     val nav = rememberNavController()
-    NavHost(nav, startDestination = "connect") {
+    NavHost(nav, startDestination = "dashboard") {
         composable("connect") {
-            ConnectScreen(vm) { nav.navigate("dashboard") }
+            ConnectScreen(vm) { nav.popBackStack() }
         }
         composable("dashboard") {
             DashboardScreen(vm,
                 onSession = { nav.navigate("session/$it") },
-                onPermissions = { nav.navigate("permissions") }
+                onPermissions = { nav.navigate("permissions") },
+                onSettings = { nav.navigate("connect") }
             )
         }
         composable("session/{id}") { entry ->

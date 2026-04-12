@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Stop
@@ -16,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.opencode.remote.data.ModelRef
+import com.opencode.remote.data.ProviderInfo
 import com.opencode.remote.ui.component.MessageBubble
 import com.opencode.remote.ui.component.MessageInfoBar
 import com.opencode.remote.ui.component.PermissionCard
@@ -31,15 +35,16 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
     val timelineMap by vm.timeline.collectAsState()
     val todoMap by vm.todos.collectAsState()
     val infoMap by vm.msgInfo.collectAsState()
+    val providers by vm.providers.collectAsState()
+    val selectedModel by vm.selectedModel.collectAsState()
     val session = sessions.find { it.id == sessionID }
-    // 按 seq 排序确保时间线顺序正确
     val items = timelineMap[sessionID].orEmpty().sortedBy { it.seq }
     val todos = todoMap[sessionID].orEmpty()
     val info = infoMap[sessionID]
     var input by remember { mutableStateOf("") }
+    var showModelPicker by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
-    // 时间线更新时自动滚动到底部
     LaunchedEffect(items.size) {
         if (items.isNotEmpty()) listState.animateScrollToItem(items.size - 1)
     }
@@ -77,9 +82,9 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
                     }
                 },
                 actions = {
-                    if (session?.status == "busy") {
-                        IconButton(onClick = { vm.abortSession(sessionID) }) {
-                            Icon(Icons.Default.Stop, "中止", tint = MaterialTheme.colorScheme.error)
+                    if (providers.isNotEmpty()) {
+                        IconButton(onClick = { showModelPicker = true }) {
+                            Icon(Icons.Default.Settings, "模型选择")
                         }
                     }
                 },
@@ -98,33 +103,47 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
                     Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
-                        value = input,
-                        onValueChange = { input = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("输入消息…", style = MaterialTheme.typography.bodySmall) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(20.dp),
-                        textStyle = MaterialTheme.typography.bodySmall,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    if (session?.status == "busy") {
+                        Button(
+                            onClick = { vm.abortSession(sessionID) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            shape = RoundedCornerShape(20.dp),
+                            contentPadding = PaddingValues(vertical = 10.dp)
+                        ) {
+                            Icon(Icons.Default.Stop, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("停止生成", style = MaterialTheme.typography.labelLarge)
+                        }
+                    } else {
+                        OutlinedTextField(
+                            value = input,
+                            onValueChange = { input = it },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("输入消息…", style = MaterialTheme.typography.bodySmall) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(20.dp),
+                            textStyle = MaterialTheme.typography.bodySmall,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                            )
                         )
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    FilledIconButton(
-                        onClick = {
-                            if (input.isNotBlank()) {
-                                vm.sendMessage(sessionID, input.trim())
-                                input = ""
-                            }
-                        },
-                        modifier = Modifier.size(36.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Send, "发送", modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        FilledIconButton(
+                            onClick = {
+                                if (input.isNotBlank()) {
+                                    vm.sendMessage(sessionID, input.trim())
+                                    input = ""
+                                }
+                            },
+                            modifier = Modifier.size(36.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, "发送", modifier = Modifier.size(18.dp))
+                        }
                     }
                 }
             }
@@ -145,6 +164,79 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
                     is TimelineItem.Info -> MessageInfoBar(item.info)
                     is TimelineItem.Perm -> PermissionCard(item.data) { response ->
                         vm.replyPermission(item.data.sessionID, item.data.id, response)
+                    }
+                    is TimelineItem.Question -> {
+                        Card(
+                            Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1)),
+                            elevation = CardDefaults.cardElevation(1.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(Modifier.padding(12.dp)) {
+                                item.data.questions.forEachIndexed { idx, q ->
+                                    if (idx > 0) Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        q.header.take(30),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(q.question, style = MaterialTheme.typography.bodySmall)
+                                    Spacer(Modifier.height(6.dp))
+                                    q.options.forEach { opt ->
+                                        Text(
+                                            "• ${opt.label}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    item.data.questions.firstOrNull()?.options?.firstOrNull()?.let { first ->
+                                        Button(
+                                            onClick = {
+                                                vm.replyQuestion(
+                                                    item.data.sessionID,
+                                                    item.data.id,
+                                                    first.label
+                                                )
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                        ) { Text("选择", style = MaterialTheme.typography.labelMedium) }
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            vm.rejectQuestion(item.data.sessionID, item.data.id)
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                    ) { Text("跳过", style = MaterialTheme.typography.labelMedium) }
+                                }
+                            }
+                        }
+                    }
+                    is TimelineItem.ActionErr -> {
+                        Card(
+                            Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                            elevation = CardDefaults.cardElevation(1.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(Modifier.padding(12.dp)) {
+                                Text(
+                                    "⚠ 操作失败: ${item.data.actionType}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    item.data.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
                     }
                     is TimelineItem.Todo -> {
                         Card(
@@ -210,4 +302,67 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit) {
             }
         }
     }
+
+    if (showModelPicker) {
+        ModelPickerDialog(
+            providers = providers,
+            selected = selectedModel,
+            onSelect = { vm.selectModel(it); showModelPicker = false },
+            onDismiss = { showModelPicker = false }
+        )
+    }
+}
+
+@Composable
+private fun ModelPickerDialog(
+    providers: List<ProviderInfo>,
+    selected: ModelRef?,
+    onSelect: (ModelRef?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("选择模型") },
+        text = {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                item {
+                    val isDefault = selected == null
+                    Card(
+                        onClick = { onSelect(null) },
+                        colors = CardDefaults.cardColors(containerColor = if (isDefault) Color(0xFFE3F2FD) else Color.White)
+                    ) {
+                        Text("默认", modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                for (p in providers) {
+                    item {
+                        Text(p.name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+                    }
+                    items(p.models) { m ->
+                        val ref = ModelRef(p.id, m.id)
+                        val isSelected = selected?.providerID == p.id && selected.modelID == m.id
+                        Card(
+                            onClick = { onSelect(ref) },
+                            colors = CardDefaults.cardColors(containerColor = if (isSelected) Color(0xFFE3F2FD) else Color.White)
+                        ) {
+                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(m.name, style = MaterialTheme.typography.bodyMedium)
+                                    Text("${m.context / 1000}k ctx", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                if (m.reasoning) {
+                                    Surface(shape = RoundedCornerShape(4.dp), color = Color(0xFFE8F5E9)) {
+                                        Text("推理", style = MaterialTheme.typography.labelSmall, color = Color(0xFF2E7D32), modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
+        }
+    )
 }

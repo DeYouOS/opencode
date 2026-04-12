@@ -30,6 +30,10 @@ import com.opencode.remote.ui.theme.ToolBg
 import com.opencode.remote.viewmodel.ToolInfo
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 // 工具调用卡片：根据工具类型分模板渲染
@@ -107,13 +111,19 @@ private fun toolIcon(tool: String, status: String): String {
         "bash" -> "⚡"
         "read" -> "📄"
         "write" -> "✏️"
-        "edit", "multiedit" -> "🔧"
+        "edit", "multiedit", "apply_patch" -> "🔧"
         "grep" -> "🔍"
         "glob" -> "📁"
+        "list" -> "📂"
         "lsp" -> "🧠"
         "task" -> "🤖"
-        "webfetch", "web_search_exa" -> "🌐"
+        "webfetch", "web_search_exa", "websearch" -> "🌐"
         "todowrite" -> "📋"
+        "codesearch" -> "🔎"
+        "skill" -> "🎯"
+        "question" -> "❓"
+        "plan_enter", "plan_exit" -> "📝"
+        "invalid" -> "⚠️"
         else -> when (status) {
             "completed" -> "✅"
             "running" -> "⏳"
@@ -122,20 +132,27 @@ private fun toolIcon(tool: String, status: String): String {
     }
 }
 
-// 工具名中文映射
 private fun toolLabel(tool: String): String = when (tool) {
     "bash" -> "终端命令"
     "read" -> "读取文件"
     "write" -> "写入文件"
     "edit" -> "编辑文件"
     "multiedit" -> "批量编辑"
+    "apply_patch" -> "应用补丁"
     "grep" -> "搜索内容"
     "glob" -> "搜索文件"
+    "list" -> "列出目录"
     "lsp" -> "LSP 分析"
     "task" -> "子任务"
     "webfetch" -> "网页获取"
-    "web_search_exa" -> "网络搜索"
+    "websearch", "web_search_exa" -> "网络搜索"
+    "codesearch" -> "代码搜索"
     "todowrite" -> "任务列表"
+    "skill" -> "技能加载"
+    "question" -> "用户提问"
+    "plan_enter" -> "进入规划"
+    "plan_exit" -> "退出规划"
+    "invalid" -> "参数错误"
     else -> tool
 }
 
@@ -168,8 +185,19 @@ private fun ToolSummary(tool: ToolInfo) {
             "$op $fp${if (line != null) ":$line" else ""}"
         }
         "task" -> input.str("description") ?: input.str("subagent_type")
-        "webfetch" -> input.str("url")
-        "web_search_exa" -> input.str("query")
+        "list" -> input.str("path")
+        "codesearch" -> input.str("query")
+        "websearch" -> input.str("query")
+        "skill" -> input.str("name")
+        "apply_patch" -> input.str("patchText")?.take(60)
+        "question" -> {
+            val count = tool.input?.get("questions")?.jsonArray?.size ?: 0
+            "${count}个问题"
+        }
+        "plan_enter" -> "进入规划模式"
+        "plan_exit" -> "退出规划模式"
+        "invalid" -> input.str("error")?.take(60)
+        "webfetch", "web_search_exa" -> input.str("url") ?: input.str("query")
         else -> tool.title
     } ?: tool.title ?: return
 
@@ -198,7 +226,15 @@ private fun ToolDetail(tool: ToolInfo) {
         "glob" -> GlobDetail(tool)
         "lsp" -> LspDetail(tool)
         "task" -> TaskDetail(tool)
-        "webfetch", "web_search_exa" -> WebDetail(tool)
+        "todowrite" -> TodoWriteDetail(tool)
+        "list" -> ListDetail(tool)
+        "codesearch" -> CodesearchDetail(tool)
+        "apply_patch" -> PatchDetail(tool)
+        "skill" -> SkillDetail(tool)
+        "question" -> QuestionToolDetail(tool)
+        "plan_enter", "plan_exit" -> OutputOnlyDetail(tool)
+        "invalid" -> InvalidToolDetail(tool)
+        "webfetch", "web_search_exa", "websearch" -> WebDetail(tool)
         else -> GenericDetail(tool)
     }
 }
@@ -351,6 +387,136 @@ private fun TaskDetail(tool: ToolInfo) {
         CodeBlock(prompt, Color(0xFF333333), Color(0xFFF0F0F0), maxLines = 10)
     }
     OutputBlock(tool.output, maxLines = 20)
+}
+
+// ── todowrite ──
+@Composable
+private fun TodoWriteDetail(tool: ToolInfo) {
+    val todosArr = tool.input?.get("todos")?.jsonArray ?: return
+    Column(Modifier.fillMaxWidth()) {
+        todosArr.forEach { elem ->
+            val obj = elem.jsonObject
+            val content = obj["content"]?.jsonPrimitive?.content ?: ""
+            val status = obj["status"]?.jsonPrimitive?.content ?: "pending"
+            val priority = obj["priority"]?.jsonPrimitive?.content
+            val icon = when (status) {
+                "completed" -> "✅"
+                "in_progress" -> "🔄"
+                "cancelled" -> "❌"
+                else -> "⬜"
+            }
+            val priColor = when (priority) {
+                "high" -> StatusError
+                "medium" -> Color(0xFFFFA000)
+                else -> null
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(vertical = 2.dp)
+            ) {
+                Text(icon, style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    content,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = if (status == "completed") Color(0xFF999999) else Color(0xFF333333)
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+                if (priColor != null) {
+                    Surface(
+                        shape = RoundedCornerShape(3.dp),
+                        color = priColor.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            priority ?: "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = priColor,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── list ──
+@Composable
+private fun ListDetail(tool: ToolInfo) {
+    val path = tool.input?.str("path")
+    if (path != null) FilePath(path)
+    OutputBlock(tool.output, maxLines = 30)
+}
+
+// ── codesearch ──
+@Composable
+private fun CodesearchDetail(tool: ToolInfo) {
+    val query = tool.input?.str("query")
+    if (query != null) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Label("查询")
+            Spacer(Modifier.width(4.dp))
+            InlineCode(query)
+        }
+    }
+    OutputBlock(tool.output, maxLines = 30)
+}
+
+// ── apply_patch ──
+@Composable
+private fun PatchDetail(tool: ToolInfo) {
+    val patch = tool.input?.str("patchText")
+    if (patch != null) {
+        CodeBlock(patch.take(2000), Color(0xFF333333), Color(0xFFF0F0F0), maxLines = 20)
+    }
+    OutputBlock(tool.output)
+}
+
+// ── skill ──
+@Composable
+private fun SkillDetail(tool: ToolInfo) {
+    val name = tool.input?.str("name")
+    if (name != null) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Label("技能")
+            Spacer(Modifier.width(4.dp))
+            InlineCode(name)
+        }
+    }
+    OutputBlock(tool.output)
+}
+
+// ── question ──
+@Composable
+private fun QuestionToolDetail(tool: ToolInfo) {
+    val questions = tool.input?.get("questions")?.jsonArray
+    if (questions != null) {
+        questions.forEachIndexed { i, q ->
+            val obj = q.jsonObject
+            val header = obj["header"]?.jsonPrimitive?.content ?: ""
+            val question = obj["question"]?.jsonPrimitive?.content ?: ""
+            Text("${i + 1}. $header", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Text(question, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 4.dp))
+        }
+    }
+    OutputBlock(tool.output)
+}
+
+// ── invalid ──
+@Composable
+private fun InvalidToolDetail(tool: ToolInfo) {
+    val error = tool.input?.str("error")
+    if (error != null) {
+        Text(error, style = MaterialTheme.typography.bodySmall, color = StatusError)
+    }
+    OutputBlock(tool.output)
+}
+
+// ── output only ──
+@Composable
+private fun OutputOnlyDetail(tool: ToolInfo) {
+    OutputBlock(tool.output)
 }
 
 // ── webfetch / search ──
