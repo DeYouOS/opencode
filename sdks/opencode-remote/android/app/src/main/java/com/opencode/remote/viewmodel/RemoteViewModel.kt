@@ -102,9 +102,10 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
     private val _providers = MutableStateFlow<List<ProviderInfo>>(emptyList())
     val providers = _providers.asStateFlow()
 
-    // 可用命令列表（/command）
-    private val _commands = MutableStateFlow<List<CommandInfo>>(emptyList())
-    val commands = _commands.asStateFlow()
+    // 命令列表（硬编码，不需要 plugin 推送）
+    val commands = MutableStateFlow(listOf(
+        CommandInfo("new", "新建会话"),
+    ))
 
     // 当前选中的模型
     private val _selectedModel = MutableStateFlow<ModelRef?>(null)
@@ -145,13 +146,9 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun sendMessage(sessionID: String, content: String) {
-        // 输入以 / 开头时走命令通道
-        if (content.startsWith("/")) {
-            val parts = content.trimStart('/').split(Regex("\\s+"), 2)
-            val cmd = parts[0]
-            val args = if (parts.size > 1) parts[1] else null
-            val action = SessionCommandAction(data = SessionCommandData(sessionID, cmd, args, model = _selectedModel.value))
-            ConnectionService.client().send(json.encodeToString(SessionCommandAction.serializer(), action))
+        // /new 直接创建新会话
+        if (content.trim() == "/new") {
+            createSession()
             return
         }
         val action = SessionMessageAction(
@@ -407,15 +404,6 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
                 // 只保留在线的终端，清理已断开的
                 _terminals.value = _terminals.value.filterKeys { it in online }
                 _sessions.value = _terminals.value.values.flatMap { it.sessions }.distinctBy { it.id }
-            }
-
-            "event.command.list" -> {
-                val obj = data as? kotlinx.serialization.json.JsonObject ?: return
-                val cmds = obj["commands"] as? kotlinx.serialization.json.JsonArray ?: return
-                val list = json.decodeFromJsonElement(
-                    kotlinx.serialization.builtins.ListSerializer(CommandInfo.serializer()), cmds
-                )
-                _commands.value = list
             }
         }
     }

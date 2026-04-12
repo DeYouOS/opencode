@@ -3,14 +3,8 @@ import type { PluginModule, PluginInput, Hooks } from "@opencode-ai/plugin"
 import type { Event } from "@opencode-ai/sdk"
 import { connect } from "./ws"
 import { mapEvent } from "./mapper"
-import { dispatch, fetchProviderList, fetchCommandList } from "./dispatcher"
-import type {
-  RemoteAction,
-  InstanceInfoEvent,
-  ProviderListEvent,
-  CommandListEvent,
-  WsEnvelope,
-} from "../../shared/protocol"
+import { dispatch, fetchProviderList } from "./dispatcher"
+import type { RemoteAction, InstanceInfoEvent, ProviderListEvent, WsEnvelope } from "../../shared/protocol"
 
 type SessionItem = {
   id: string
@@ -74,9 +68,6 @@ const plugin: PluginModule = {
     ws.onConnected(() => {
       pushInstanceInfo(instanceId, input, (e) => ws.send(e))
       pushProviderList(input, (e) => ws.send(e))
-      fetchCommandList(input).then((data) => {
-        ws.send({ type: "event.command.list", data } satisfies CommandListEvent)
-      })
     })
 
     ws.onAction((env: WsEnvelope) => {
@@ -84,9 +75,6 @@ const plugin: PluginModule = {
       if (action.type === "action.refresh") {
         pushInstanceInfo(instanceId, input, (e) => ws.send(e))
         pushProviderList(input, (e) => ws.send(e))
-        fetchCommandList(input).then((data) => {
-          ws.send({ type: "event.command.list", data } satisfies CommandListEvent)
-        })
         return
       }
       dispatch(action, input, (e) => ws.send(e)).catch(() => {})
