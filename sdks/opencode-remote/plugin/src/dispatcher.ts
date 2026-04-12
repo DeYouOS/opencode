@@ -39,10 +39,12 @@ export async function fetchCommandList(input: PluginInput): Promise<CommandListE
     description?: string
     hints?: string[]
     subtask?: boolean
+    source?: string
   }>
   return {
+    // 只保留 command 源的命令，过滤掉 skill/mcp 等手机端用不上的
     commands: list
-      .filter((c) => !c.subtask)
+      .filter((c) => !c.subtask && c.source === "command")
       .map((c) => ({
         name: c.name,
         description: c.description,
