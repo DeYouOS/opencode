@@ -158,11 +158,18 @@ export async function dispatch(action: RemoteAction, input: PluginInput, send?: 
       break
 
     case "action.question.reply":
-      await fetch(`${base}/question/${action.data.questionID}/reply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers: [action.data.answer] }),
-      })
+      // answer 可能是逗号分隔的多选值，拆成数组后嵌套（后端要求 answers 是二维数组）
+      {
+        const labels = action.data.answer
+          .split(",")
+          .map((s: string) => s.trim())
+          .filter(Boolean)
+        await fetch(`${base}/question/${action.data.questionID}/reply`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ answers: [labels] }),
+        })
+      }
       break
 
     case "action.question.reject":
