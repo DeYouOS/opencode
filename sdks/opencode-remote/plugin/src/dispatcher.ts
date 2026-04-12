@@ -31,18 +31,34 @@ export async function fetchProviderList(input: PluginInput): Promise<ProviderLis
   return { providers }
 }
 
-// 获取后端注册的所有命令列表
+// 获取后端注册的命令列表，直接 import OpenCode 的 Command 模块
 export async function fetchCommandList(input: PluginInput): Promise<CommandListEvent["data"]> {
-  const res = await input.client.command.list()
-  const list = res.data as any as Array<{
+  let list: Array<{
     name: string
     description?: string
     hints?: string[]
     subtask?: boolean
     source?: string
   }>
+  try {
+    // 直接调用 Command.list()，绕过 HTTP 路由顺序 bug
+    const { Command } = await import("../../../packages/opencode/src/command/index")
+    const cmds = await Command.list()
+    list = cmds.map((c: any) => ({
+      name: c.name,
+      description: c.description,
+      hints: c.hints,
+      subtask: c.subtask,
+      source: c.source,
+    }))
+  } catch {
+    // fallback：HTTP 请求
+    const base = input.serverUrl.toString().replace(/\/$/, "")
+    const res = await fetch(`${base}/session/command`)
+    list = (await res.json()) as any
+  }
+  // 只保留用户自定义 command 源的命令
   return {
-    // 只保留 command 源的命令，过滤掉 skill/mcp 等手机端用不上的
     commands: list
       .filter((c) => !c.subtask && c.source === "command")
       .map((c) => ({
