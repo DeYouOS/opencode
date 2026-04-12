@@ -20,11 +20,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.opencode.remote.data.WsState
-import com.opencode.remote.data.loadConfig
+import com.opencode.remote.service.ConnectionService
 import com.opencode.remote.ui.component.StatusBar
 import com.opencode.remote.ui.theme.StatusBusy
 import com.opencode.remote.viewmodel.RemoteViewModel
-import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,20 +34,10 @@ fun DashboardScreen(
     onPermissions: () -> Unit,
     onSettings: () -> Unit
 ) {
-    val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
     val sessions by vm.sessions.collectAsState()
     val terminals by vm.terminals.collectAsState()
     val permissions by vm.permissions.collectAsState()
-    val state by vm.client.state.collectAsState()
-
-    // 启动时自动连接（已连接则跳过，避免导航返回时重复连接）
-    LaunchedEffect(Unit) {
-        if (state !is WsState.Connected && state !is WsState.Connecting) {
-            val cfg = ctx.loadConfig()
-            vm.connect(cfg.url, cfg.token)
-        }
-    }
+    val state by ConnectionService.state.collectAsState()
 
     // 每个 session 对应的目录
     fun dirFor(sid: String): String {
@@ -99,12 +88,7 @@ fun DashboardScreen(
                             Spacer(Modifier.height(8.dp))
                             Text((state as WsState.Error).msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(16.dp))
-                            OutlinedButton(onClick = {
-                                scope.launch {
-                                    val cfg = ctx.loadConfig()
-                                    vm.connect(cfg.url, cfg.token)
-                                }
-                            }) { Text("重试") }
+                            OutlinedButton(onClick = { ConnectionService.disconnect() }) { Text("重试") }
                         }
                     } else {
                         Text("暂无会话", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)

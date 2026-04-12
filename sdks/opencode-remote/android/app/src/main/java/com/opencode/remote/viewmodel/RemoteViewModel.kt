@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.opencode.remote.data.*
+import com.opencode.remote.service.ConnectionService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -62,7 +63,7 @@ sealed class TimelineItem(val seq: Long) {
 
 class RemoteViewModel(app: Application) : AndroidViewModel(app) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }
-    val client = RelayClient()
+    // client 由 ConnectionService 统一管理
 
     // 单调递增序列号，用于时间线排序
     private val _seq = AtomicLong(0)
@@ -111,43 +112,34 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
-            client.events.collect { (type, payload) ->
+            ConnectionService.events.collect { (type, payload) ->
                 handleEvent(type, payload)
             }
         }
         viewModelScope.launch {
-            client.state.collect { state ->
+            ConnectionService.state.collect { state ->
                 if (state is WsState.Connected) {
                     // 不清空 terminals，等 sync 事件来清理已断开的终端
                     // 清空 sessions 避免残留
                     _sessions.value = emptyList()
                     val action = RefreshAction()
                     val encoded = json.encodeToString(RefreshAction.serializer(), action)
-                    client.send(encoded)
+                    ConnectionService.client().send(encoded)
                     // 延迟再发一次，确保 plugin 已准备好（解决同时连接的竞态）
                     kotlinx.coroutines.delay(3000)
-                    client.send(encoded)
+                    ConnectionService.client().send(encoded)
                 }
             }
         }
     }
 
-    fun connect(url: String, token: String) {
-        viewModelScope.launch {
-            getApplication<Application>().saveConfig(url, token)
-            client.connect(url, token)
-        }
-    }
 
-    fun disconnect() {
-        client.disconnect()
-    }
 
     fun replyPermission(sessionID: String, permissionID: String, response: String) {
         val action = PermissionReplyAction(
             data = PermissionReplyData(sessionID, permissionID, response)
         )
-        client.send(json.encodeToString(PermissionReplyAction.serializer(), action))
+        ConnectionService.client().send(json.encodeToString(PermissionReplyAction.serializer(), action))
         _permissions.value = _permissions.value.filter { it.id != permissionID }
         removeTimeline(sessionID, "__perm_$permissionID")
     }
@@ -159,13 +151,13 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
             val cmd = parts[0]
             val args = if (parts.size > 1) parts[1] else null
             val action = SessionCommandAction(data = SessionCommandData(sessionID, cmd, args, model = _selectedModel.value))
-            client.send(json.encodeToString(SessionCommandAction.serializer(), action))
+            ConnectionService.client().send(json.encodeToString(SessionCommandAction.serializer(), action))
             return
         }
         val action = SessionMessageAction(
             data = SessionMessageData(sessionID, content, model = _selectedModel.value)
         )
-        client.send(json.encodeToString(SessionMessageAction.serializer(), action))
+        ConnectionService.client().send(json.encodeToString(SessionMessageAction.serializer(), action))
     }
 
     fun selectModel(model: ModelRef?) {
@@ -174,19 +166,19 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
 
     fun abortSession(sessionID: String) {
         val action = SessionAbortAction(data = SessionAbortData(sessionID))
-        client.send(json.encodeToString(SessionAbortAction.serializer(), action))
+        ConnectionService.client().send(json.encodeToString(SessionAbortAction.serializer(), action))
     }
 
     fun createSession() {
         val action = SessionCreateAction(data = SessionCreateData())
-        client.send(json.encodeToString(SessionCreateAction.serializer(), action))
+        ConnectionService.client().send(json.encodeToString(SessionCreateAction.serializer(), action))
     }
 
     fun replyQuestion(sessionID: String, questionID: String, answer: String) {
         val action = QuestionReplyAction(
             data = QuestionReplyData(sessionID, questionID, answer)
         )
-        client.send(json.encodeToString(QuestionReplyAction.serializer(), action))
+        ConnectionService.client().send(json.encodeToString(QuestionReplyAction.serializer(), action))
         _questions.value = _questions.value.filter { it.id != questionID }
         removeTimeline(sessionID, "__question_$questionID")
     }
@@ -195,7 +187,7 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
         val action = QuestionRejectAction(
             data = QuestionRejectData(sessionID, questionID)
         )
-        client.send(json.encodeToString(QuestionRejectAction.serializer(), action))
+        ConnectionService.client().send(json.encodeToString(QuestionRejectAction.serializer(), action))
         _questions.value = _questions.value.filter { it.id != questionID }
         removeTimeline(sessionID, "__question_$questionID")
     }

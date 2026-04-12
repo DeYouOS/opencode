@@ -13,6 +13,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.opencode.remote.data.WsState
 import com.opencode.remote.data.loadConfig
+import com.opencode.remote.data.saveConfig
+import com.opencode.remote.service.ConnectionService
 import com.opencode.remote.viewmodel.RemoteViewModel
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
@@ -24,7 +26,7 @@ fun ConnectScreen(vm: RemoteViewModel, onConnected: () -> Unit) {
     val scope = rememberCoroutineScope()
     var url by remember { mutableStateOf("") }
     var token by remember { mutableStateOf("") }
-    val state by vm.client.state.collectAsState()
+    val state by ConnectionService.state.collectAsState()
 
     LaunchedEffect(Unit) {
         val cfg = ctx.loadConfig()
@@ -118,7 +120,10 @@ fun ConnectScreen(vm: RemoteViewModel, onConnected: () -> Unit) {
             Spacer(Modifier.height(16.dp))
 
             Button(
-                onClick = { scope.launch { vm.connect(url, token) } },
+                onClick = { scope.launch {
+                    ctx.saveConfig(url, token)
+                    ConnectionService.connect(url, token)
+                } },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 enabled = url.isNotBlank() && token.isNotBlank() && state !is WsState.Connecting,
                 shape = RoundedCornerShape(12.dp)
