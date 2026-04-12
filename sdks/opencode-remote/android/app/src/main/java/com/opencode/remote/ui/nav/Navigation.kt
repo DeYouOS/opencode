@@ -27,7 +27,7 @@ fun AppNavigation(vm: RemoteViewModel = viewModel()) {
         }
         composable("session/{id}") { entry ->
             val id = entry.arguments?.getString("id") ?: return@composable
-            SessionScreen(vm, id) { nav.popBackStack() }
+            SessionScreen(vm, id, { nav.popBackStack() }) { nav.navigate("session/$it") }
         }
         composable("permissions") {
             PermissionScreen(vm) { nav.popBackStack() }

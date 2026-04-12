@@ -5,7 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.opencode.remote.data.*
 import com.opencode.remote.service.ConnectionService
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -106,6 +108,10 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
     val commands = MutableStateFlow(listOf(
         CommandInfo("new", "新建会话"),
     ))
+
+    // 新建会话通知，供 UI 自动跳转
+    private val _createdSession = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val createdSession = _createdSession.asSharedFlow()
 
     // 当前选中的模型
     private val _selectedModel = MutableStateFlow<ModelRef?>(null)
@@ -269,6 +275,7 @@ class RemoteViewModel(app: Application) : AndroidViewModel(app) {
                 val s = json.decodeFromJsonElement(SessionInfoData.serializer(), data)
                 val iid = payload["data"]?.let { it.jsonObject["instanceId"]?.jsonPrimitive?.content } ?: findTerminalBySession(s.id)
                 _sessions.value = _sessions.value + SessionInfo(s.id, s.title, instanceId = iid)
+                _createdSession.tryEmit(s.id)
             }
 
             "event.session.updated" -> {
