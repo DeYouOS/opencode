@@ -83,6 +83,10 @@ const plugin: PluginModule = {
       const action = env.payload as RemoteAction
       if (action.type === "action.refresh") {
         pushInstanceInfo(instanceId, input, (e) => ws.send(e))
+        pushProviderList(input, (e) => ws.send(e))
+        fetchCommandList(input).then((data) => {
+          ws.send({ type: "event.command.list", data } satisfies CommandListEvent)
+        })
         return
       }
       dispatch(action, input, (e) => ws.send(e)).catch(() => {})

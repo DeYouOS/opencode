@@ -73,6 +73,8 @@ export function createWsHandler(token: string, pluginQueue: Queue, phoneQueue: Q
         data: { instanceIds: [...plugins.keys()] },
       }
       sendEnvelope(ws, { seq: 0, ts: Date.now(), payload: sync })
+      // 通知所有 plugin 重新推送信息（instanceInfo、providerList、commandList）
+      broadcastToPlugins({ seq: 0, ts: Date.now(), payload: { type: "action.refresh" } as RemoteAction })
     }
 
     const q = role === "plugin" ? pluginQueue : phoneQueue
@@ -166,11 +168,13 @@ export function createWsHandler(token: string, pluginQueue: Queue, phoneQueue: Q
       }
     },
 
-    close(ws: ServerWebSocket<WsData>) {
+    close(ws: ServerWebSocket<WsData>, code: number, reason: string) {
       const role = ws.data.role
+      console.log(
+        `[relay] close: role=${role} code=${code} reason=${reason || "无"} authenticated=${ws.data.authenticated}`,
+      )
       if (role === "phone" && phone === ws) {
         phone = null
-        console.log("[relay] phone 已断开")
       } else if (role === "plugin" && ws.data.instanceId) {
         const iid = ws.data.instanceId
         plugins.delete(iid)
