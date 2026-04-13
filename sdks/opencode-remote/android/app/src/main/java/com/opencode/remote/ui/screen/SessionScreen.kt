@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -43,6 +44,7 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit, on
     val info = infoMap[sessionID]
     var input by remember { mutableStateOf("") }
     var showModelPicker by remember { mutableStateOf(false) }
+    var showReasoning by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     // 新建会话后自动跳转到新会话
@@ -89,6 +91,9 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit, on
                 actions = {
                     IconButton(onClick = { vm.createSession() }) {
                         Icon(Icons.Default.Add, "新建会话")
+                    }
+                    IconButton(onClick = { showReasoning = !showReasoning }) {
+                        Icon(Icons.Default.Info, if (showReasoning) "隐藏思考" else "显示思考")
                     }
                     if (providers.isNotEmpty()) {
                         IconButton(onClick = { showModelPicker = true }) {
@@ -167,7 +172,7 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit, on
             // 按时间线顺序交织渲染消息、工具、任务列表、开销信息
             items(items, key = { "${it::class.simpleName}_${it.seq}" }) { item ->
                 when (item) {
-                    is TimelineItem.Msg -> MessageBubble(item.part)
+                    is TimelineItem.Msg -> MessageBubble(item.part, showReasoning)
                     is TimelineItem.Tool -> ToolCallCard(item.info)
                     is TimelineItem.Info -> MessageInfoBar(item.info)
                     is TimelineItem.Perm -> PermissionCard(item.data) { response ->
