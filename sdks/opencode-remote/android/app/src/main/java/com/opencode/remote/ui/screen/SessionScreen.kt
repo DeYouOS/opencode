@@ -44,7 +44,7 @@ fun SessionScreen(vm: RemoteViewModel, sessionID: String, onBack: () -> Unit, on
     val info = infoMap[sessionID]
     var input by remember { mutableStateOf("") }
     var showModelPicker by remember { mutableStateOf(false) }
-    var showReasoning by remember { mutableStateOf(false) }
+    var showReasoning by remember { mutableStateOf(true) }
     val listState = rememberLazyListState()
 
     // 新建会话后自动跳转到新会话
