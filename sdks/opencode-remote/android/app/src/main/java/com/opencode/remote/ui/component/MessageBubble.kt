@@ -55,14 +55,26 @@ private fun TextBubble(text: String) {
 // 推理内容：逐字打印效果，灰色背景
 @Composable
 private fun TypewriterBubble(fullText: String) {
-    var charCount by remember(fullText) { mutableStateOf(0) }
+    // 不用 fullText 做 key，避免 delta 更新时重置动画
+    var charCount by remember { mutableStateOf(0) }
+    // 记住上一次的文本长度，检测增量
+    var prevLength by remember { mutableStateOf(0) }
 
-    LaunchedEffect(Unit) {
-        val delayMs = if (fullText.length < 100) 30L else if (fullText.length < 500) 15L else 8L
-        while (charCount < fullText.length) {
-            delay(delayMs)
-            charCount = (charCount + 1).coerceAtMost(fullText.length)
+    // 当有新增文本时，启动追加动画
+    LaunchedEffect(fullText.length) {
+        if (fullText.length > prevLength) {
+            // 有新增内容，从当前位置继续动画到新长度
+            val delayMs = if (fullText.length < 100) 30L else if (fullText.length < 500) 15L else 8L
+            val target = fullText.length
+            while (charCount < target) {
+                delay(delayMs)
+                charCount = (charCount + 1).coerceAtMost(target)
+            }
+        } else if (fullText.length < charCount) {
+            // 文本被截断（不应该发生），直接同步
+            charCount = fullText.length
         }
+        prevLength = fullText.length
     }
 
     val displayedText = fullText.take(charCount)
